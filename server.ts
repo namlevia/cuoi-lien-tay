@@ -245,7 +245,13 @@ app.post('/api/tiktok/connect', async (req, res) => {
   activeConn = conn;
 
   try {
-    const state = await conn.connect();
+    // Chưa LIVE thì thư viện có thể treo mãi ở "Đang kết nối": hỏi TikTok trước, báo lỗi ngay
+    const live = await conn.fetchIsLive().catch(() => true); // hỏi lỗi thì cứ thử kết nối
+    if (!live) throw new Error('TikTok báo tài khoản này CHƯA LIVE. Bấm Phát trực tiếp trong LIVE Studio trước rồi mới kết nối');
+    const state = await Promise.race([
+      conn.connect(),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('quá 30 giây không vào được phòng live, thử bấm Kết nối lại')), 30_000)),
+    ]);
     return res.json({ success: true, roomId: state?.roomId });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
