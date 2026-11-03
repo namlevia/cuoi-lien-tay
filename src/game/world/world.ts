@@ -75,10 +75,12 @@ class World {
   private base: CamMode = 'wide';
   private shot = { kind: 0, t0: 0, until: 0, dir: 1 };
   private djFxAt = 0;
+  private camCut = false;
+  private camWasClose = false;
   private carParked = false;
   private carOnArrive: (() => void) | null = null;
   private carCamUntil = 0;
-  private focus: { id: string | null; mode: CamMode | null; until: number; point?: V3 } = { id: null, mode: null, until: 0 };
+  private focus: { id: string | null; mode: CamMode | null; until: number; point?: V3; close?: boolean } = { id: null, mode: null, until: 0 };
   private couple: { groom: string | null; bride: string | null; mode: 'none' | 'gate' | 'walk' | 'stage' } = { groom: null, bride: null, mode: 'none' };
   private partyUntil = 0;
   private fx: Particles;
@@ -484,6 +486,14 @@ class World {
     else if (this.guests.has(target)) this.focus = { id: target, mode: null, until: Date.now() + ms };
   }
 
+  /** Người vừa gõ quẩy: quay cận người đó (ngoại lệ của luật "không quay cận khách lẻ"; useGame lo lúc nào được quay) */
+  spotlightDancer(id: string, ms = 5000) {
+    if (!this.guests.has(id) || this.couple.mode === 'gate') return false;
+    this.focus = { id, mode: null, until: Date.now() + ms, close: true };
+    this.camCut = true; // cắt cảnh thẳng vào mặt, không bay ngang cả sảnh
+    return true;
+  }
+
   /** Zoom vào 1 điểm (1 bàn khách) */
   lookPoint(_p: V3, _ms = 6000) {
     // đã bỏ quay cận từng bàn (chủ kênh chốt): giữ hàm cho chỗ gọi cũ, không làm gì
@@ -549,6 +559,13 @@ class World {
       // cao hơn + nhìn chúc xuống để cả bàn và bảng tên nằm dưới phần chữ phía trên
       pos.set(point.x * 0.8 + Math.sin(this.t * 0.5) * 0.8, 6, point.z + 6.2);
       look.set(point.x, 0.2, point.z - 1);
+    } else if (g && this.focus.close) {
+      // quay cận người gõ quẩy: đứng trước mặt người đó (theo hướng đang quay mặt, kể cả lúc đi ra sàn), lắc nhẹ theo nhạc
+      const p = g.c.root.position;
+      const ry = g.c.root.rotation.y;
+      const sway = Math.sin(this.t * 0.8) * 0.6;
+      pos.set(p.x + Math.sin(ry) * 3.2 + Math.cos(ry) * sway, p.y + 1.9, p.z + Math.cos(ry) * 3.2 - Math.sin(ry) * sway);
+      look.set(p.x, p.y + 1.0, p.z);
     } else if (g) {
       const p = g.c.root.position;
       pos.set(p.x * 0.85, p.y + 2.6, p.z + 4.8);
@@ -581,6 +598,15 @@ class World {
       }
     } else {
       this.wideShot(now, pos, look);
+    }
+    // vừa vào / vừa hết cảnh quay cận người gõ quẩy: cắt thẳng (bay qua cả sảnh sẽ lướt qua toàn thảm đỏ)
+    const close = now < this.focus.until && !!this.focus.close;
+    if (this.camWasClose && !close) this.camCut = true;
+    this.camWasClose = close;
+    if (this.camCut) {
+      this.camCut = false;
+      this.camPos.copy(pos);
+      this.camLook.copy(look);
     }
     const k = 1 - Math.exp(-dt * 2.2);
     this.camPos.lerp(pos, k);

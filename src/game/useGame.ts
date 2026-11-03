@@ -177,7 +177,9 @@ export function useGame() {
     bless: new Map<string, number>(), // xu chúc phúc trong đám hiện tại
     parents: [null, null] as [string | null, string | null], // [phụ huynh nhà trai, nhà gái]
     giftTotal: loadTop(), // tổng xu mỗi người trong ngày (bảng Top đại gia, chỉ tính quà; làm mới trang không mất)
-    djPending: false, // có quà / tim gọi nhảy lúc đang cưới: nhảy sau khi cưới xong
+    djPending: false,
+    danceCam: [] as string[], // người gõ quẩy lúc đang nhảy DJ, chờ camera quay cận (5 giây/người)
+    danceCamUntil: 0, // có quà / tim gọi nhảy lúc đang cưới: nhảy sau khi cưới xong
     chatterGap: GAME.chatterQuietMs,
   }));
 
@@ -189,6 +191,11 @@ export function useGame() {
   /** tiết mục khác đang chạy: nhảy DJ, MC hát, Nguyệt Lão, bình chọn đẹp đôi */
   function showBusy() {
     return world.djOn || world.singing || !!s.duyen || !!s.vote;
+  }
+
+  /** được quay cận người gõ quẩy: đang nhạc DJ, hoặc rảnh (không có đám cưới, không tiết mục khác) */
+  function danceCamOk() {
+    return world.djOn || (!weddingBusy() && !showBusy());
   }
 
   /** đang cử hành lễ (đi thảm đỏ, bái đường, xe hoa đón): MC chỉ nói về cô dâu chú rể, không chào khách */
@@ -393,12 +400,16 @@ export function useGame() {
     music.dj(GAME.djMs);
     world.look('stage', 8000);
     voice.say(pick(GAME.djIntro)!, true);
-    // nhảy 3 phút: MC hô mỗi 15 giây, camera đổi giữa toàn cảnh và sân khấu
+    s.danceCam = [];
+    // MC hô mỗi 15 giây; camera đổi giữa toàn cảnh và sân khấu, trừ khi đang quay người vừa gõ quẩy
     const hype = Math.floor(GAME.djMs / GAME.djHypeEveryMs) - 1;
     for (let i = 1; i <= hype; i++)
       setTimeout(() => {
         // xen kẽ: câu hô nhảy, rồi câu chúc sức khỏe / tình duyên
-        if (world.djOn) voice.say(pick(i % 2 ? GAME.djHype : GAME.djWish)!, true, undefined, false, () => world.look(i % 2 ? 'wide' : 'stage', 8000));
+        if (world.djOn)
+          voice.say(pick(i % 2 ? GAME.djHype : GAME.djWish)!, true, undefined, false, () => {
+            if (!s.danceCam.length && Date.now() > s.danceCamUntil) world.look(i % 2 ? 'wide' : 'stage', 8000);
+          });
       }, i * GAME.djHypeEveryMs);
     setTimeout(() => {
       voice.say(GAME.djEnd);
@@ -775,6 +786,8 @@ export function useGame() {
         }
         world.joinDance(id);
         world.say(id, '💃 Quẩy!', 2500);
+        // camera lần lượt quay cận người gõ quẩy, mỗi người 5 giây (lúc nhạc DJ, hoặc lúc rảnh không có đám / tiết mục)
+        if (danceCamOk() && !s.danceCam.includes(id) && s.danceCam.length < 30) s.danceCam.push(id);
         if (!inCeremony() && s.actLimit('dance')) voice.sayMinor(pick(GAME.danceJoin)!(spoken(id)));
         return;
       }
@@ -1018,6 +1031,24 @@ export function useGame() {
           if (s.nudgeLimit('all')) voice.say(pick(GAME.nudge)!(b, left), true, undefined, false, undefined, () => s.w === w && w.phase === 'proposal');
         }
       }, 1000),
+    );
+    // Người gõ quẩy: camera lần lượt quay cận từng người, mỗi người 5 giây.
+    // Hết nhạc DJ (hoặc bắt đầu có đám / tiết mục khác) thì bỏ hàng chờ, không quay tiếp.
+    timers.push(
+      setInterval(() => {
+        if (!danceCamOk()) {
+          s.danceCam = [];
+          return;
+        }
+        if (Date.now() < s.danceCamUntil) return;
+        while (s.danceCam.length) {
+          const id = s.danceCam.shift()!;
+          if (world.spotlightDancer(id, 5000)) {
+            s.danceCamUntil = Date.now() + 5000;
+            break;
+          }
+        }
+      }, 300),
     );
     // PK: vẽ lại bảng điểm tối đa ~3 lần/giây (không vẽ theo từng comment, để chịu được hàng nghìn comment), hết giờ thì chốt
     timers.push(
