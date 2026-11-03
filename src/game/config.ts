@@ -24,7 +24,7 @@ export const GAME = {
   giftThanksCooldownMs: 30_000,
   greetEveryMs: 6000,
   namesPerGreeting: 3,
-  chatterQuietMs: 3000,
+  chatterQuietMs: 1500, // MC im 1,5 giây là nói tiếp (chủ kênh muốn MC nói nhiều)
   shareReminderEveryMs: 4 * 60_000,
 
   // ---------- Người lướt vào live ----------
@@ -311,6 +311,26 @@ export const GAME = {
     (a: N, b: N) => `M: Ai mới vào thì ngồi xuống lẹ! | F: ${b} sắp trả lời ${a} rồi! | M: ^Hồi hộp quá trời!`,
     (a: N, b: N) => `F: Đoán coi ${b} có gật đầu với ${a} không? | M: MC cá là... ^không dám cá!`,
   ],
+
+  // ---------- Quẩy DJ: cả sảnh lên sân khấu ----------
+  djEveryMs: 6 * 60_000,
+  djMs: 26_000,
+  djIntro: [
+    `M: ^DJ ơi! Lên nhạc! | F: ^Cả sảnh lên sân khấu quẩy nào! | M: Ai ngồi im là MC gọi tên đó nha!`,
+    `F: ^Tắt đèn! Bật nhạc! | M: Tất cả mọi người lên sân khấu! | F: ^Quẩy tung nóc nhà hàng luôn!`,
+    `M: Thông báo: đám cưới tạm dừng để... ^quẩy! | F: DJ đâu, cho bài mạnh nhất! | M: ^Lên! Lên! Lên!`,
+  ],
+  djHype: [
+    `F: ^Tay đâu! Tay đâu! | M: Giơ tay lên trời!`,
+    `M: ^Nhảy! Nhảy! Nhảy! | F: Bà nội cũng nhảy kìa bà con!`,
+    `F: Ai mệt thì ngồi, ai còn sức thì ^quẩy tiếp!`,
+    `M: ^DJ cho thêm bass! | F: Rung luôn cái sân khấu!`,
+    `F: ^Thả tim cho DJ đi bà con! | M: Đủ một nghìn tim là xe hoa chạy ra luôn!`,
+    `M: Chú rể nhảy kiểu này chắc cô dâu bỏ về! | F: ^Mà vui là được!`,
+    `F: ^Một, hai, ba, nhảy! | M: Một, hai, ba, xoay!`,
+    `M: Gõ quẩy để nhân vật của bạn lên sân khấu luôn nha! | F: ^Quẩy đi chờ chi!`,
+  ],
+  djEnd: `F: Hết nhạc rồi bà con ơi! | M: Về chỗ ăn cỗ tiếp nha! | F: Lát nữa DJ quay lại, ^nhớ ở lại!`,
 
   // ---------- Mốc tim: 100 pháo giấy, 300 cả sảnh quẩy, 1000 xe hoa rước dâu ----------
   likeMilestones: [100, 300, 1000],

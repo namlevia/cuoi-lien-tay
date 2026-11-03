@@ -138,9 +138,9 @@ class Voice {
 function readRate() {
   try {
     const r = Number(localStorage.getItem('voice-rate'));
-    return r >= 0.5 && r <= 1.5 ? r : 1.25;
+    return r >= 0.5 && r <= 1.5 ? r : 1.35;
   } catch {
-    return 1.25;
+    return 1.35;
   }
 }
 

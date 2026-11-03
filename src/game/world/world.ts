@@ -89,6 +89,13 @@ class World {
   private crew: Guest[] = [];
   private stageDancers: { g: Guest; home: V3; spot: V3 }[] = [];
   private car: THREE.Group | null = null;
+  private roses: Particles;
+  private roseAcc = 0;
+  private balloons: { m: THREE.Mesh; vy: number; life: number; sway: number }[] = [];
+  private lasers: THREE.Mesh[] = [];
+  private disco: THREE.Mesh;
+  private djUntil = 0;
+  private djCrew: Guest[] = [];
   private carPath: V3[] = [];
   private stageDanceOn = false;
   private dj: Chibi;
@@ -127,6 +134,31 @@ class World {
     s.add(this.mcM.root, this.mcF.root);
 
     this.fx = new Particles(4000, 0.3, squareTex());
+    this.roses = new Particles(900, 0.42, petalTex());
+    s.add(this.roses.points);
+    // bóng bay bay lên (dùng lại 40 quả)
+    const bGeo = new THREE.SphereGeometry(0.28, 12, 10);
+    bGeo.scale(1, 1.2, 1);
+    for (let i = 0; i < 40; i++) {
+      const m = new THREE.Mesh(bGeo, new THREE.MeshLambertMaterial({ color: ['#ff4d6d', '#ffffff', '#ffc2d1', '#b388ff', '#7ec8e3'][i % 5] }));
+      m.visible = false;
+      s.add(m);
+      this.balloons.push({ m, vy: 0, life: 0, sway: Math.random() * 6 });
+    }
+    // laser từ bàn DJ + quả cầu disco, chỉ bật lúc quẩy DJ
+    const laserGeo = new THREE.CylinderGeometry(0.025, 0.025, 30, 6);
+    laserGeo.translate(0, 15, 0);
+    for (let i = 0; i < 8; i++) {
+      const l = new THREE.Mesh(laserGeo, new THREE.MeshBasicMaterial({ color: ['#ff2d95', '#29f0ff', '#7dff5a', '#ffe14d'][i % 4], transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+      l.position.set(6.4 + (i % 2 ? 0.3 : -0.3), STAGE_Y + 1.1, -25.4);
+      l.visible = false;
+      this.lasers.push(l);
+      s.add(l);
+    }
+    this.disco = new THREE.Mesh(new THREE.IcosahedronGeometry(0.7, 1), new THREE.MeshLambertMaterial({ color: '#e6ecff', flatShading: true, emissive: '#555577' }));
+    this.disco.position.set(0, 7, -17);
+    this.disco.visible = false;
+    s.add(this.disco);
     this.hearts = new Particles(500, 0.5, heartTex());
     s.add(this.fx.points, this.hearts.points);
 
@@ -782,6 +814,63 @@ class World {
     this.dance(ms);
   }
 
+  /** Mưa cánh hồng đỏ / hồng phấn lả tả khắp sảnh */
+  roseRain(n = 260) {
+    for (let i = 0; i < n; i++)
+      this.roses.add(v((Math.random() - 0.5) * 24, 8 + Math.random() * 4, -24 + Math.random() * 32), v(0, -0.7, 0), ['#d90429', '#ff4d6d', '#c9184a', '#ff8fab', '#ffccd5'][i % 5], 12, 1.1);
+  }
+
+  /** Bóng bay bay lên từ sàn */
+  balloonsUp(n = 24) {
+    let k = 0;
+    for (const b of this.balloons) {
+      if (k >= n) break;
+      if (b.life > 0) continue;
+      b.m.visible = true;
+      b.m.position.set((Math.random() - 0.5) * 22, 0.5, -20 + Math.random() * 26);
+      b.vy = 1 + Math.random() * 0.8;
+      b.life = 11;
+      k++;
+    }
+  }
+
+  /** Màn quẩy DJ: khách thật + dàn khách quen + bớt khách đệm kéo hết lên sân khấu và sàn trước sân khấu nhảy */
+  djParty(ms = 25000) {
+    const now = Date.now();
+    this.djUntil = Math.max(this.djUntil, now + ms);
+    this.partyAll(ms);
+    if (this.djCrew.length) return;
+    const real = [...this.guests.values()].filter((g) => !g.role && !g.busy && !g.id.startsWith('ev-'));
+    const npc = this.npcs.filter((g) => !g.busy).sort(() => Math.random() - 0.5).slice(0, Math.max(0, Math.round(46 * this.quality) - real.length));
+    const spots: V3[] = [];
+    for (let z = STAGE_Z + 1.2; z >= STAGE_Z - 2.2; z -= 1.1) for (let x = -6.6; x <= 6.6; x += 1.1) if (Math.abs(x) > 1.2 || z < STAGE_Z - 0.5) spots.push(v(x, STAGE_Y, z));
+    for (let z = -14.8; z >= -18.6; z -= 1.1) for (let x = -10; x <= 10; x += 1.1) if (Math.abs(x) > 1.4) spots.push(v(x, 0, z));
+    const crew = [...real, ...npc].slice(0, spots.length);
+    crew.forEach((g, i) => {
+      const spot = spots[i].clone().add(v((Math.random() - 0.5) * 0.3, 0, (Math.random() - 0.5) * 0.3));
+      const p = g.c.root.position;
+      const lane = TABLES[g.seat?.table ?? 0].z + 2.2;
+      g.busy = true;
+      // ra lối giữa 2 hàng bàn, men theo mép thảm đỏ xuống sàn trước sân khấu (không cắt chéo qua bàn)
+      const ax = (spot.x < 0 ? -1 : 1) * (AISLE_HALF + 0.5);
+      const base = [v(p.x, 0, lane), v(ax, 0, lane), v(ax, 0, -14.4)];
+      g.path =
+        spot.y > 0
+          ? [...base, v(spot.x, 0, -14.4), v(spot.x, 0, STAGE_FRONT + 0.7), v(spot.x, STAGE_Y, STAGE_FRONT - 0.3), spot]
+          : [...base, v(spot.x, 0, -14.4), spot];
+      g.speed = 3.2 + Math.random();
+      g.face = 0;
+      g.onArrive = () => (g.action = { pose: (['dance', 'dance', 'jump', 'spin', 'dance'] as Pose[])[Math.floor(Math.random() * 5)], until: this.djUntil });
+    });
+    this.djCrew = crew;
+    this.roseRain(200);
+    this.balloonsUp(20);
+  }
+
+  get djOn() {
+    return Date.now() < this.djUntil;
+  }
+
   /** Xe hoa rước dâu: chạy ngang trước dãy bàn đầu, rồi vòng qua sàn trước sân khấu */
   weddingCar() {
     if (!this.car) {
@@ -862,7 +951,9 @@ class World {
     g.busy = true;
     const p = g.c.root.position;
     const spot = v((Math.random() < 0.5 ? -1 : 1) * (2.2 + Math.random() * 5), 0, -15 - Math.random() * 0.8);
-    g.path = [v(p.x, 0, TABLES[g.seat?.table ?? 0].z + 2.2), v(spot.x, 0, -14.6), spot];
+    const lane = TABLES[g.seat?.table ?? 0].z + 2.2;
+    const ax = (spot.x < 0 ? -1 : 1) * (AISLE_HALF + 0.5);
+    g.path = [v(p.x, 0, lane), v(ax, 0, lane), v(ax, 0, -14.4), v(spot.x, 0, -14.6), spot];
     g.speed = 3;
     g.face = 0;
     g.onArrive = () => {
@@ -1046,6 +1137,40 @@ class World {
     this.stepStaff(now);
     for (const g of [...this.waiters, ...this.crew, ...this.dancers.map((d) => d.g), ...this.stageDancers.map((d) => d.g)]) this.stepGuest(g, dt, now, false);
     this.pets.update(dt, this.t);
+    // hoa hồng rơi nhẹ liên tục + bóng bay + màn quẩy DJ
+    this.roseAcc += dt * 3 * this.quality;
+    while (this.roseAcc >= 1) {
+      this.roseAcc--;
+      this.roses.add(v((Math.random() - 0.5) * 22, 9, -22 + Math.random() * 28), v(0, -0.6, 0), Math.random() < 0.6 ? '#ff4d6d' : '#ffccd5', 14, 1);
+    }
+    this.roses.update(dt);
+    for (const b of this.balloons) {
+      if (b.life <= 0) continue;
+      b.life -= dt;
+      b.m.position.y += b.vy * dt;
+      b.m.position.x += Math.sin(this.t * 1.5 + b.sway) * dt * 0.4;
+      if (b.life <= 0) b.m.visible = false;
+    }
+    const dj = now < this.djUntil;
+    for (const [i, l] of this.lasers.entries()) {
+      l.visible = dj;
+      if (dj) {
+        l.rotation.z = Math.sin(this.t * 1.7 + i) * 1.1 + (i - 4) * 0.12;
+        l.rotation.x = 0.9 + Math.sin(this.t * 1.3 + i * 2) * 0.35;
+      }
+    }
+    this.disco.visible = dj;
+    if (dj) this.disco.rotation.y += dt * 2;
+    if (!dj && this.djCrew.length) {
+      for (const g of this.djCrew) {
+        g.busy = false;
+        g.action = null;
+        g.onArrive = undefined;
+        this.goHome(g);
+      }
+      this.djCrew = [];
+    }
+
     // xe hoa chạy theo đường, kéo theo tim và kim tuyến
     if (this.car?.visible) {
       const to = this.carPath[0];
@@ -1428,6 +1553,17 @@ function squareTex() {
   const x = c.getContext('2d')!;
   x.fillStyle = '#fff';
   x.fillRect(6, 9, 20, 14);
+  return new THREE.CanvasTexture(c);
+}
+
+function petalTex() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const x = c.getContext('2d')!;
+  x.fillStyle = '#fff';
+  x.beginPath();
+  x.ellipse(32, 32, 26, 15, 0.6, 0, Math.PI * 2);
+  x.fill();
   return new THREE.CanvasTexture(c);
 }
 

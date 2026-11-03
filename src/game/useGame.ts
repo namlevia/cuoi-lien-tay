@@ -114,6 +114,8 @@ export function useGame() {
     likeStep: 0,
     vote: null as null | { until: number; yes: number; no: number; voted: Set<string>; g: string; b: string },
     nextEventAt: Date.now() + GAME.eventEveryMs[0],
+    lastDj: Date.now() - GAME.djEveryMs + 3 * 60_000, // lần đầu sau ~3 phút
+    danceCalls: [] as number[],
     actLimit: limiter(6_000),
     crewLimit: limiter(45_000),
     lastDuyen: Date.now() - GAME.duyen.everyMs + 90_000, // lần đầu sau ~1,5 phút
@@ -203,6 +205,8 @@ export function useGame() {
     const b = spoken(w.ids[other(w.stealRole)]);
     voice.say(pick(GAME.accepted)!(a, b), true, undefined, true, () => {
       world.cannons();
+      world.roseRain(220);
+      world.balloonsUp(20);
       world.dance(9000);
       world.confetti(160);
       world.heartsRain(60);
@@ -275,6 +279,22 @@ export function useGame() {
     sync();
     if (groom && bride) setTimeout(() => startVote(groom, bride), 2500);
     setTimeout(nextInQueue, GAME.voteMs + 8000);
+  };
+
+  // ---------- Quẩy DJ: cả sảnh lên sân khấu, nhạc DJ, MC hô liên tục ----------
+  const startDj = () => {
+    if (world.djOn) return;
+    s.lastDj = Date.now();
+    world.djParty(GAME.djMs);
+    music.dj(GAME.djMs);
+    world.look('stage', 8000);
+    voice.say(pick(GAME.djIntro)!, true);
+    const hype = Math.floor(GAME.djMs / 6000);
+    for (let i = 1; i <= hype; i++)
+      setTimeout(() => {
+        if (world.djOn) voice.say(pick(GAME.djHype)!, true, undefined, false, () => world.look(i % 2 ? 'wide' : 'stage', 5000));
+      }, i * 5500);
+    setTimeout(() => voice.say(GAME.djEnd), GAME.djMs + 500);
   };
 
   // ---------- Bình chọn đẹp đôi ----------
@@ -529,6 +549,13 @@ export function useGame() {
         return;
       }
       if (cmd?.type === 'dance') {
+        const now = Date.now();
+        s.danceCalls = [...s.danceCalls.filter((t) => now - t < 30_000), now];
+        if (s.danceCalls.length >= 5 && !world.djOn) {
+          s.danceCalls = [];
+          startDj();
+          return;
+        }
         world.joinDance(id);
         world.say(id, '💃 Quẩy!', 2500);
         if (s.actLimit('dance')) voice.say(pick(GAME.danceJoin)!(spoken(id)));
@@ -579,6 +606,9 @@ export function useGame() {
       // quà nào cũng bay từ người tặng lên sân khấu; quà to thêm pháo sáng + khói
       world.giftTrail(id, coins >= 99 ? 120 : coins >= 10 ? 70 : 40);
       if (coins >= 10) world.fountains(coins >= 99 ? 8000 : 4000);
+      if (coins >= 10) world.roseRain(coins >= 99 ? 260 : 120);
+      if (coins >= 99) world.balloonsUp(coins >= 299 ? 36 : 18);
+      if (coins >= 299) startDj();
       if (coins >= 30) {
         world.dance(coins >= 99 ? 10000 : 6000);
         if (s.crewLimit('all')) voice.say(pick(GAME.danceCrew)!);
@@ -630,9 +660,10 @@ export function useGame() {
           world.heartsRain(80);
           voice.say(GAME.likes100, true);
         } else if (mark === 300) {
-          world.partyAll(10000);
           world.heartsRain(120);
+          world.roseRain(200);
           voice.say(GAME.boostLine, true);
+          startDj();
         } else {
           world.weddingCar();
           world.fireworks(8);
@@ -663,6 +694,8 @@ export function useGame() {
       if (c.action === 'custom' && c.text === 'duyen') startDuyen();
       if (c.action === 'custom' && c.text === 'event') runEvent();
       if (c.action === 'custom' && c.text === 'car') world.weddingCar();
+      if (c.action === 'custom' && c.text === 'dj') startDj();
+      if (c.action === 'custom' && c.text === 'roses') world.roseRain(300);
       if (!IS_STAGE) return; // chỉ trang stage làm theo lệnh có tiếng, tránh 2 giọng
       if (c.action === 'speak' && c.text) voice.say(c.text, true);
       if (c.action === 'custom' && (c.text === 'music:on' || c.text === 'music:off')) music.set(c.text === 'music:on');
@@ -763,6 +796,14 @@ export function useGame() {
         }, 10_000 + Math.random() * 12_000);
       }, 4000),
     );
+    // Quẩy DJ định kỳ lúc không có đám
+    timers.push(
+      setInterval(() => {
+        const ph = s.w?.phase;
+        if (Date.now() - s.lastDj < GAME.djEveryMs || (ph && ph !== 'after') || s.duyen || s.vote || world.djOn) return;
+        startDj();
+      }, 5000),
+    );
     // Sự kiện bất ngờ mỗi 3–5 phút (không chen vào lúc cầu hôn / đi thảm đỏ / làm lễ / se duyên / bình chọn)
     timers.push(
       setInterval(() => {
@@ -813,7 +854,7 @@ export function useGame() {
       timers.push(
         setInterval(() => {
           const ph = s.w?.phase;
-          if (ph === 'vows' || ph === 'walk' || voice.quietForMs() < GAME.chatterQuietMs) return;
+          if (ph === 'vows' || ph === 'walk' || world.djOn || voice.quietForMs() < GAME.chatterQuietMs) return;
           const line = chatterLine();
           if (line) voice.say(line);
         }, 2000),

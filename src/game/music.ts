@@ -114,6 +114,85 @@ export async function render(): Promise<AudioBuffer> {
   return buf;
 }
 
+/** Nhạc DJ 128 BPM: trống 4 phách, vỗ tay, hi-hat, bass nảy, hợp âm giật (8 ô nhịp lặp) */
+export async function renderDJ(): Promise<AudioBuffer> {
+  const bpm = 128;
+  const beat = 60 / bpm;
+  const bars = 8;
+  const len = beat * 4 * bars;
+  const ctx = new OfflineAudioContext(1, Math.ceil((len + 0.01) * RATE), RATE);
+  const out = ctx.createGain();
+  out.connect(ctx.destination);
+  const noise = ctx.createBuffer(1, RATE, RATE);
+  const nd = noise.getChannelData(0);
+  for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+  const kick = (t: number) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+    g.gain.setValueAtTime(0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    o.connect(g);
+    g.connect(out);
+    o.start(t);
+    o.stop(t + 0.32);
+  };
+  const hiss = (t: number, dur: number, vol: number, hp: number) => {
+    const sNode = ctx.createBufferSource();
+    sNode.buffer = noise;
+    const f = ctx.createBiquadFilter();
+    f.type = 'highpass';
+    f.frequency.value = hp;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    sNode.connect(f);
+    f.connect(g);
+    g.connect(out);
+    sNode.start(t);
+    sNode.stop(t + dur + 0.02);
+  };
+  const synth = (f: number, t: number, dur: number, vol: number, cutoff: number) => {
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.value = f;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = cutoff;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(lp);
+    lp.connect(g);
+    g.connect(out);
+    o.start(t);
+    o.stop(t + dur + 0.02);
+  };
+  // Am - F - C - G
+  const roots = [57, 53, 48, 55];
+  const triads = [[69, 72, 76], [69, 72, 77], [67, 72, 76], [67, 71, 74]];
+  for (let b = 0; b < bars; b++) {
+    const t0 = b * beat * 4;
+    const ch = b % 4;
+    for (let i = 0; i < 4; i++) {
+      const t = t0 + i * beat;
+      kick(t);
+      hiss(t + beat / 2, 0.08, 0.25, 7000); // hi-hat giữa phách
+      if (i % 2 === 1) hiss(t, 0.18, 0.45, 1200); // vỗ tay phách 2, 4
+      synth(freq(roots[ch] - 12), t + beat / 2, beat * 0.45, 0.35, 600); // bass nảy
+      if (i % 2 === 0 || b % 2 === 1) for (const n of triads[ch]) synth(freq(n), t + (i % 2 ? beat * 0.75 : 0), beat * 0.3, 0.07, 2600);
+    }
+    if (b === bars - 1) for (let k = 0; k < 8; k++) hiss(t0 + beat * 2 + (k * beat) / 4, 0.1, 0.15 + k * 0.04, 3000); // dồn trống cuối vòng
+  }
+  const buf = await ctx.startRendering();
+  const d = buf.getChannelData(0);
+  let peak = 0;
+  for (let i = 0; i < d.length; i++) peak = Math.max(peak, Math.abs(d[i]));
+  if (peak > 0) for (let i = 0; i < d.length; i++) d[i] *= 0.92 / peak;
+  return buf;
+}
+
 /** AudioBuffer (mono) -> file WAV 16-bit */
 function toWav(buf: AudioBuffer): Blob {
   const d = buf.getChannelData(0);
@@ -137,6 +216,8 @@ function toWav(buf: AudioBuffer): Blob {
 
 class Music {
   private el: HTMLAudioElement | null = null;
+  private djEl: HTMLAudioElement | null = null;
+  private djUntil = 0;
   on = true;
   // hệ số âm lượng chỉnh ở trang điều khiển: 1 = mặc định, 2 = gấp đôi (tối đa 100%)
   level = readLevel();
@@ -154,16 +235,35 @@ class Music {
         this.ready = true;
       })
       .catch((err) => console.warn('Không dựng được nhạc nền:', err));
+    const djEl = new Audio();
+    djEl.loop = true;
+    djEl.volume = 0;
+    this.djEl = djEl;
+    renderDJ()
+      .then((buf) => (djEl.src = URL.createObjectURL(toWav(buf))))
+      .catch((err) => console.warn('Không dựng được nhạc DJ:', err));
     const tryPlay = () => this.ready && this.on && el.paused && el.play().catch(() => {});
     // trình duyệt chặn tự phát thì thử lại định kỳ / khi có tương tác
     setInterval(tryPlay, 2000);
     window.addEventListener('pointerdown', tryPlay);
-    // âm lượng trượt mượt về mức đích
+    // âm lượng trượt mượt về mức đích; lúc quẩy DJ thì nhạc đám cưới nhỏ hẳn, nhạc DJ to lên
     setInterval(() => {
-      const target = !this.on || !voice.enabled ? 0 : Math.min(1, (voice.busy ? DUCK : LOUD) * this.level);
+      const dj = Date.now() < this.djUntil;
+      const on = this.on && voice.enabled;
+      const target = !on || dj ? 0 : Math.min(1, (voice.busy ? DUCK : LOUD) * this.level);
       el.volume = Math.max(0, Math.min(1, el.volume + (target - el.volume) * 0.3));
       if (!this.on && el.volume < 0.01) el.pause();
+      const djTarget = on && dj ? Math.min(1, (voice.busy ? 0.42 : 0.85) * this.level) : 0;
+      djEl.volume = Math.max(0, Math.min(1, djEl.volume + (djTarget - djEl.volume) * 0.3));
+      if (dj && djEl.paused && djEl.src) djEl.play().catch(() => {});
+      if (!dj && djEl.volume < 0.01 && !djEl.paused) djEl.pause();
     }, 100);
+  }
+
+  /** bật nhạc DJ trong `ms` rồi tự về nhạc đám cưới */
+  dj(ms: number) {
+    this.djUntil = Math.max(this.djUntil, Date.now() + ms);
+    if (this.djEl) this.djEl.currentTime = 0;
   }
 
   setLevel(level: number) {

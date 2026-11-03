@@ -73,6 +73,8 @@ export function GameControls({ stageCount = 0 }: { stageCount?: number }) {
         <B onClick={() => void sendControl('custom', 'duyen')}>🧵 Nguyệt Lão se duyên</B>
         <B onClick={() => void sendControl('custom', 'event')}>🎲 Sự kiện bất ngờ</B>
         <B onClick={() => void sendControl('custom', 'car')}>🚗 Xe hoa</B>
+        <B onClick={() => void sendControl('custom', 'dj')}>🎧 Quẩy DJ cả sảnh</B>
+        <B onClick={() => void sendControl('custom', 'roses')}>🌹 Mưa hoa hồng</B>
         <B
           on={musicOn}
           onClick={() => {
