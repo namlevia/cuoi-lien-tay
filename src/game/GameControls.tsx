@@ -74,6 +74,7 @@ export function GameControls({ stageCount = 0 }: { stageCount?: number }) {
         <B onClick={() => void sendControl('custom', 'event')}>🎲 Sự kiện bất ngờ</B>
         <B onClick={() => void sendControl('custom', 'car')}>🚗 Xe hoa</B>
         <B onClick={() => void sendControl('custom', 'dj')}>🎧 Quẩy DJ cả sảnh</B>
+        <B onClick={() => void sendControl('custom', 'song')}>🎤 MC hát (đèn rọi)</B>
         <B onClick={() => void sendControl('custom', 'hire')}>🧑‍🍳 Tuyển người xem làm nhân viên</B>
         <B onClick={() => void sendControl('custom', 'roses')}>🌹 Mưa hoa hồng</B>
         <B
@@ -162,7 +163,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 const SAMPLES = [
   GAME.proposal.groom[0]('Minh Tuấn', 'Lan Anh'),
   GAME.stolen[0]('Hoàng Long', 'Minh Tuấn', 'groom'),
-  GAME.vows[0].promiseG('Minh Tuấn'),
+  GAME.ceremonyOpen[0]('Minh Tuấn', 'Lan Anh'),
   GAME.greetings[1]('bạn Lan Anh và bạn Thu Trang'),
 ];
 let sample = 0;

@@ -42,44 +42,46 @@ TABLE_ZS.forEach((z) =>
 export const STANDING: { x: number; z: number; taken: string | null }[] = [];
 for (let z = 6; z > -16; z -= 1.1) for (const x of [-10.6, -11.6, 10.6, 11.6]) STANDING.push({ x, z, taken: null });
 
-/** Trời hoàng hôn vẽ bằng canvas: tím than trên cao, hồng, đào ở chân trời, mặt trời lặn và mây */
-function sunsetTexture(withSun: boolean) {
+/** Trời đêm vẽ bằng canvas: xanh đen trên cao, tím than ở chân trời, sao, trăng và ánh đèn thành phố */
+function nightTexture(withMoon: boolean) {
   const c = document.createElement('canvas');
   c.width = 1024;
   c.height = 512;
   const x = c.getContext('2d')!;
   const g = x.createLinearGradient(0, 0, 0, 512);
-  g.addColorStop(0, '#2c2350');
-  g.addColorStop(0.35, '#6e4a8e');
-  g.addColorStop(0.6, '#d9789b');
-  g.addColorStop(0.8, '#f4a98a');
-  g.addColorStop(1, '#ffd6a5');
+  g.addColorStop(0, '#05060f');
+  g.addColorStop(0.5, '#0d1030');
+  g.addColorStop(0.85, '#22183f');
+  g.addColorStop(1, '#3a2347');
   x.fillStyle = g;
   x.fillRect(0, 0, 1024, 512);
-  if (withSun) {
-    const s = x.createRadialGradient(512, 430, 10, 512, 430, 220);
-    s.addColorStop(0, 'rgba(255,240,200,1)');
-    s.addColorStop(0.25, 'rgba(255,214,165,0.8)');
-    s.addColorStop(1, 'rgba(255,214,165,0)');
+  // sao
+  for (let i = 0; i < 160; i++) {
+    const r = ((i * 7919) % 1000) / 1000;
+    x.fillStyle = `rgba(255,255,255,${0.35 + r * 0.6})`;
+    x.fillRect((i * 389) % 1024, (i * 211) % 330, r < 0.85 ? 2 : 3, r < 0.85 ? 2 : 3);
+  }
+  if (withMoon) {
+    const s = x.createRadialGradient(780, 110, 6, 780, 110, 120);
+    s.addColorStop(0, 'rgba(255,250,230,1)');
+    s.addColorStop(0.28, 'rgba(255,245,215,0.95)');
+    s.addColorStop(0.32, 'rgba(200,210,255,0.25)');
+    s.addColorStop(1, 'rgba(200,210,255,0)');
     x.fillStyle = s;
     x.fillRect(0, 0, 1024, 512);
   }
-  // mây mỏng
-  x.fillStyle = 'rgba(255,220,230,0.25)';
-  for (let i = 0; i < 14; i++) {
-    const cx = (i * 173) % 1024;
-    const cy = 180 + ((i * 97) % 200);
-    x.beginPath();
-    x.ellipse(cx, cy, 120 + (i % 3) * 40, 14 + (i % 2) * 6, 0, 0, Math.PI * 2);
-    x.fill();
+  // ánh đèn thành phố xa ở chân trời
+  for (let i = 0; i < 90; i++) {
+    x.fillStyle = i % 3 ? 'rgba(255,214,140,0.7)' : 'rgba(255,170,200,0.55)';
+    x.fillRect((i * 557) % 1024, 470 + ((i * 37) % 36), 3, 3);
   }
   // khung cửa kính
   x.strokeStyle = 'rgba(230,225,240,0.55)';
   x.lineWidth = 6;
-  for (let i = 1; i < (withSun ? 6 : 2); i++) {
+  for (let i = 1; i < (withMoon ? 6 : 2); i++) {
     x.beginPath();
-    x.moveTo((1024 / (withSun ? 6 : 2)) * i, 0);
-    x.lineTo((1024 / (withSun ? 6 : 2)) * i, 512);
+    x.moveTo((1024 / (withMoon ? 6 : 2)) * i, 0);
+    x.lineTo((1024 / (withMoon ? 6 : 2)) * i, 512);
     x.stroke();
   }
   const t = new THREE.CanvasTexture(c);
@@ -313,12 +315,12 @@ export function buildHall(scene: THREE.Scene) {
   lights.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
   const fairy = new THREE.Points(lights, new THREE.PointsMaterial({ color: '#ffe9cf', size: 0.09 }));
 
-  // cửa kính lớn sau sân khấu + 2 bên tường: trời hoàng hôn tím hồng dịu mắt
-  const sky = sunsetTexture(true);
+  // cửa kính lớn sau sân khấu + 2 bên tường: trời đêm có trăng sao
+  const sky = nightTexture(true);
   const skyWin = new THREE.Mesh(new THREE.PlaneGeometry(30, 9), new THREE.MeshBasicMaterial({ map: sky }));
   skyWin.position.set(0, 4.5, -27.34);
   scene.add(skyWin);
-  const sideTex = sunsetTexture(false);
+  const sideTex = nightTexture(false);
   for (const sx of [-1, 1]) {
     for (let z = 6; z > -24; z -= 8) {
       const win = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 5.4), new THREE.MeshBasicMaterial({ map: sideTex }));

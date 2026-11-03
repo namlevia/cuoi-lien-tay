@@ -43,25 +43,39 @@ export function parseCommand(comment: string): Command | null {
 }
 
 /**
- * Comment "@Lan Anh 🌸" có khớp người này không? So không dấu, bỏ emoji, phải ĐÚNG tên:
- * "@lan" chỉ khớp người tên "Lan", không khớp "Lan Anh" (chủ kênh chốt).
- * Chữ gõ thêm phía sau được bỏ qua: "@Lan Anh nha" vẫn khớp "Lan Anh".
+ * Độ khớp giữa chữ gõ sau @ và 1 người (gõ tên hiển thị hay username đều được; bỏ dấu, bỏ emoji, chữ kiểu lạ):
+ *   3 = đúng username, hoặc đúng y tên hiển thị ("@vũ" với "Vũ🌈🌈"; "@Lan Anh nha" với "Lan Anh")
+ *   2 = tên hiển thị BẮT ĐẦU bằng chữ gõ, gõ từ 3 ký tự ("@trang" với "Trang Nguyễn 2k")
+ *   1 = tên hiển thị CHỨA chữ gõ, từ 3 ký tự ("@nguyen" với "Trang Nguyễn 2k")
+ *   0 = không khớp
+ * Mức 2 và 1 chỉ dùng khi trong sảnh có đúng 1 người khớp (findGuest lo việc này), để không bắt nhầm.
  */
-export function matchName(typed: string, nickname: string, username: string): boolean {
-  const names = [squash(nickname), squash(username)].filter(Boolean);
-  const words = typed.trim().split(/\s+/);
-  for (let k = words.length; k >= 1; k--) {
-    const t = squash(words.slice(0, k).join(' '));
-    if (t && names.includes(t)) return true;
-  }
-  return false;
+export function nameScore(typed: string, nickname: string, username: string): number {
+  const nick = squash(nickname);
+  const user = squash(username);
+  const first = firstToken(typed);
+  if (first && username && (first === username.toLowerCase() || squash(first) === user)) return 3;
+  const prefixes = namePrefixes(typed.replace(/^@+\s*/, '')).map(squash).filter(Boolean);
+  if (prefixes.some((t) => t === nick || t === user)) return 3;
+  if (!prefixes.length || !nick) return 0;
+  if (prefixes.some((p) => p.length >= 3 && nick.startsWith(p))) return 2;
+  if (prefixes.some((p) => p.length >= 3 && nick.includes(p))) return 1;
+  return 0;
 }
 
-/** đúng y tên (không dấu, bỏ emoji) */
-export function exactName(typed: string, nickname: string, username: string) {
-  const t = squash(typed);
-  return !!t && (t === squash(nickname) || t === squash(username));
+/** khớp chắc chắn (mức 3) hoặc gần đúng (mức 2) — dùng khi chờ người được @ vào tiệc */
+export function matchName(typed: string, nickname: string, username: string): boolean {
+  return nameScore(typed, nickname, username) >= 2;
 }
+
+/** đúng y username hoặc tên hiển thị */
+export function exactName(typed: string, nickname: string, username: string) {
+  return nameScore(typed, nickname, username) === 3;
+}
+
+/** chữ đầu sau @: bỏ @ thừa, dấu câu cuối ("@vu.2k5!" -> "vu.2k5") */
+export const firstToken = (typed: string) =>
+  (typed.trim().replace(/^@+\s*/, '').split(/\s+/)[0] ?? '').replace(/[^\p{L}\p{N}._]+$/u, '').toLowerCase();
 
 /** các cách cắt chữ sau @, dài trước: "Lan Anh nha" -> "Lan Anh nha", "Lan Anh", "Lan" */
 export function namePrefixes(typed: string) {

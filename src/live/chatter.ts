@@ -6,6 +6,7 @@
 // Bỏ dấu, thường hoá, 1 khoảng trắng, có khoảng trắng 2 đầu: "Cầu Bình An" -> " cau binh an "
 export const plain = (text: string) =>
   ` ${text
+    .normalize('NFKC') // chữ kiểu lạ 𝑽𝒖̃ -> Vũ trước khi bỏ dấu, để "@vũ" khớp được
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[đĐ]/g, 'd')

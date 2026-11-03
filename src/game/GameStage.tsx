@@ -5,6 +5,8 @@ import { H, W, world } from './world/world';
 import './stage.css';
 
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+/** phần trăm thanh phe cướp (chưa ai có điểm thì chia đôi; luôn chừa chỗ cho số của cả 2 phe) */
+const pkPct = (a: number, d: number) => (a + d === 0 ? 50 : Math.min(85, Math.max(15, (a / (a + d)) * 100)));
 
 /** Màn hình live 1080x1920: sảnh cưới 3D + lớp bảng tên + bảng chữ phía trên */
 export function GameStage({ game }: { game: GameState }) {
@@ -19,13 +21,13 @@ export function GameStage({ game }: { game: GameState }) {
   const [, tick] = useState(0);
   const v = game.view;
   useEffect(() => {
-    if (v?.phase !== 'proposal' && !game.duyen && !game.vote) return;
+    if (v?.phase !== 'proposal' && !game.duyen && !game.vote && !game.pk) return;
     const t = setInterval(() => tick((x) => x + 1), 500);
     return () => clearInterval(t);
   }, [v?.phase, !!game.duyen, !!game.vote]);
   const left = v ? Math.max(0, Math.ceil((v.until - Date.now()) / 1000)) : 0;
   const likePct = Math.min(100, (game.likeProgress / game.likeNext) * 100);
-  const canSteal = v && (v.phase === 'proposal' || v.phase === 'walk');
+  const canSteal = v && v.phase === 'proposal' && !v.pkDone;
 
   return (
     <div className="dc-stage">
@@ -89,19 +91,44 @@ export function GameStage({ game }: { game: GameState }) {
         <span className="dc-guide-h">Gõ:</span>
         <span className="dc-chip">🤵 CƯỚI VỢ @tên</span>
         <span className="dc-chip">👰 CƯỚI CHỒNG @tên</span>
-        <span className="dc-chip">💖 ĐỒNG Ý</span>
-        <span className="dc-chip">🥂 ZÔ</span>
       </div>
       <div className="dc-guide dc-guide2">
-        <span className="dc-chip">👊 ĐẤM @tên</span>
-        <span className="dc-chip">😜 TRÊU @tên</span>
+        <span className="dc-chip">💖 Người được hỏi gõ ĐỒNG Ý mới cưới</span>
         <span className="dc-chip">💃 QUẨY</span>
         <span className="dc-chip">🙏 SE DUYÊN</span>
       </div>
 
-      {canSteal && (
-        <div className="dc-steal">
-          🦹 Tặng <b>≥{v.price} xu</b> để {v.stealRole === 'groom' ? 'CƯỚP DÂU' : 'CƯỚP RỂ'}!
+      {game.pk ? (
+        <div className="dc-pk">
+          <div className="dc-pk-head">
+            ⚔️ PK {v?.stealRole === 'groom' ? 'CƯỚP DÂU' : 'CƯỚP RỂ'} · {Math.max(0, Math.ceil((game.pk.until - Date.now()) / 1000))}s
+          </div>
+          <div className="dc-pk-bar">
+            <div className="dc-pk-atk" style={{ width: `${pkPct(game.pk.atk, game.pk.def)}%` }}>
+              <span>⚔️ {game.pk.atk}</span>
+            </div>
+            <div className="dc-pk-def">
+              <span>{game.pk.def} 🛡️</span>
+            </div>
+          </div>
+          <div className="dc-pk-sub">
+            <span>Gõ <b>CƯỚP</b> · phe {cut(game.pk.atkName, 10)}</span>
+            <span>Gõ <b>KHÔNG</b> · giữ {cut(game.pk.defName, 10)}</span>
+          </div>
+          <div className="dc-pk-note">1 comment = 1 điểm · 1 xu quà = 10 điểm</div>
+        </div>
+      ) : (
+        canSteal && (
+          <div className="dc-steal">
+            ⚔️ Không chịu? Gõ <b>CƯỚP</b> để mở PK {v.stealRole === 'groom' ? 'cướp dâu' : 'cướp rể'}
+          </div>
+        )
+      )}
+
+      {game.parents && (game.parents.groom || game.parents.bride) && (
+        <div className="dc-parents">
+          👪 {[game.parents.bride, game.parents.groom].filter(Boolean).join(' · ')}
+          <small>Tặng quà chúc phúc nhiều nhất được lên làm ba mẹ</small>
         </div>
       )}
 
@@ -111,13 +138,7 @@ export function GameStage({ game }: { game: GameState }) {
         </div>
       )}
 
-      {game.nguyen && (
-        <div key={game.nguyen.ten} className="dc-nguyen">
-          <div className="dc-nguyen-h">🧵 Nguyệt Lão se duyên</div>
-          <div className="dc-nguyen-ten">{game.nguyen.ten}</div>
-          <p>{game.nguyen.loi}</p>
-        </div>
-      )}
+      {/* Thẻ lời nguyện Nguyệt Lão đã ẩn (che nhiều sảnh quá); MC vẫn đọc lời nguyện */}
 
       {game.vote && (
         <div className="dc-steal dc-vote">

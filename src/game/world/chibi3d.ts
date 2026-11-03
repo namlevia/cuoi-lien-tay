@@ -208,7 +208,7 @@ const flat = (m: THREE.Mesh) => {
 
 export type Pose =
   | 'stand' | 'walk' | 'sit' | 'cheer' | 'zo' | 'dance' | 'kneel' | 'cry' | 'fall' | 'talk' | 'hug' | 'wave'
-  | 'poke' | 'punch' | 'hit' | 'laugh' | 'carry' | 'dj' | 'flip' | 'spin' | 'jump';
+  | 'poke' | 'punch' | 'hit' | 'laugh' | 'carry' | 'dj' | 'flip' | 'spin' | 'jump' | 'bow';
 
 /** 1 nhân vật. `root` đặt trên sàn, quay mặt theo +z khi rotation.y = 0 */
 export class Chibi {
@@ -227,6 +227,7 @@ export class Chibi {
 
   private scale: number;
   lean = 1; // trêu / đấm về phía nào (+1 phải, -1 trái)
+  bowStart = -99; // lúc bắt đầu cúi lạy (giây, theo đồng hồ của world)
   seated = false; // đang ngồi ghế (world cập nhật mỗi khung hình)
 
   constructor(look: Look, scale = 1.1) {
@@ -243,6 +244,13 @@ export class Chibi {
     this.legR.position.set(0.075, LEG, 0);
     this.head.scale.setScalar(0.74); // đầu nhỏ lại cho ra dáng người thật hơn
     this.build();
+  }
+
+  /** đỉnh tóc (toạ độ thế giới), theo cả lúc ngồi / nhảy, để bảng tên nằm sát trên đầu */
+  headTop(out: THREE.Vector3) {
+    this.head.getWorldPosition(out);
+    out.y += 0.27 * this.scale;
+    return out;
   }
 
   setLook(look: Look) {
@@ -475,6 +483,20 @@ export class Chibi {
         this.armL.rotation.set(0, 0, 2.2 + Math.sin(p * 6) * 0.6);
         this.armR.rotation.set(0, 0, -2.2 + Math.sin(p * 6) * 0.6);
         break;
+      case 'bow': {
+        // bái lạy: chắp tay, cúi 1 cái đúng lúc MC hô "Bái!" (bowStart do world đặt chung cho cả 2 người)
+        const k = (t - this.bowStart) / 1.4;
+        const a = k > 0 && k < 1 ? Math.sin(Math.PI * k) * 0.6 : 0;
+        b.rotation.x = a;
+        b.position.z = -a * 0.35;
+        b.position.y = -a * 0.08;
+        this.legL.rotation.x = -a;
+        this.legR.rotation.x = -a;
+        this.armL.rotation.set(-0.9 - a, 0, 0.45);
+        this.armR.rotation.set(-0.9 - a, 0, -0.45);
+        this.head.rotation.x = a * 0.4;
+        break;
+      }
       case 'kneel':
         b.position.y = -LEG * 0.55;
         this.legL.rotation.x = -1.5;

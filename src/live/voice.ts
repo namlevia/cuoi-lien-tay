@@ -16,14 +16,38 @@ interface Line {
   start?: () => void; // gọi khi câu bắt đầu đọc (để camera lia tới người được nói tới)
   valid?: () => boolean; // tới lượt đọc mà trả về false thì bỏ câu (chuyện đã cũ, vd. đã bị cướp mà vẫn "sắp trả lời")
   keep?: boolean; // không bỏ dù chờ lâu (lời dẫn khai mạc dài)
+  gapMs?: number; // dòng im lặng: nghỉ giữa 2 cảnh
 }
 
-const MAX_WAIT_MS = 60_000;
+const ONE_VOICE = true; // false: 2 MC nam nữ đối đáp như bản gốc
+const MAX_WAIT_MS = 25_000; // chờ lâu hơn là chuyện trên màn hình đã qua, đọc ra sẽ lệch hình
+
+/** "M: Anh nói | F: ^Em hô" -> từng đoạn với giọng + link đọc */
+function segments(text: string, rate: number) {
+  let who: 'M' | 'F' = 'M';
+  const out: { who: 'M' | 'F'; url: string }[] = [];
+  for (let raw of text.split('|')) {
+    raw = raw.trim();
+    const sp = /^(M|F):\s*/.exec(raw);
+    if (sp) {
+      // chủ kênh chốt: chỉ 1 giọng nam suốt buổi live, câu "F:" cũng đọc bằng giọng nam
+      who = ONE_VOICE ? 'M' : (sp[1] as 'M' | 'F');
+      raw = raw.slice(sp[0].length);
+    }
+    const hype = raw.startsWith('^');
+    const t = raw.replace(/^\^+/, '');
+    if (t) out.push({ who, url: `/api/tts?rate=${rate}${hype ? '&hype=1' : ''}${who === 'F' ? '&v=f' : ''}&text=${encodeURIComponent(t)}` });
+  }
+  return out;
+}
 const MAX_QUEUE = 30;
+const MAX_MINOR = 6;
+const MINOR_MAX_WAIT_MS = 12_000;
 
 class Voice {
   private normal: Line[] = [];
   private priority: Line[] = [];
+  private minor: Line[] = [];
   private playing = false;
   private current: HTMLAudioElement | null = null;
   private lastSpokeAt = Date.now();
@@ -43,20 +67,44 @@ class Voice {
     const q = priority ? this.priority : this.normal;
     q.push({ text: text.trim(), at: Date.now(), done, keep, start, valid });
     if (q.length > MAX_QUEUE) q.shift()?.done?.();
+    // MC đang nói: tải trước câu sắp tới để nói liền mạch
+    if (this.playing) for (const l of [...this.priority, ...this.normal].slice(0, 2)) this.warm(l);
+    void this.next();
+  }
+
+  /**
+   * Câu phụ (chào khách, cảm ơn quà nhỏ, theo dõi, chia sẻ...): chỉ đọc khi không còn câu chính nào chờ,
+   * chờ quá 12 giây thì bỏ, tối đa 6 câu — để không chen ngang cảnh đang diễn và không dồn khi live đông.
+   */
+  sayMinor(text: string, start?: () => void) {
+    if (!this.enabled || !text.trim()) {
+      if (start) setTimeout(start, 0);
+      return;
+    }
+    this.minor.push({ text: text.trim(), at: Date.now(), start });
+    if (this.minor.length > MAX_MINOR) this.minor.shift();
+    void this.next();
+  }
+
+  /** khoảng nghỉ giữa 2 cảnh (MC im `ms`) cho người xem kịp thở */
+  gap(ms: number) {
+    if (!this.enabled) return;
+    this.normal.push({ text: '', at: Date.now(), keep: true, gapMs: ms });
     void this.next();
   }
 
   stop() {
-    for (const l of [...this.normal, ...this.priority]) l.done?.();
+    for (const l of [...this.normal, ...this.priority, ...this.minor]) l.done?.();
     this.normal = [];
     this.priority = [];
+    this.minor = [];
     this.current?.pause();
     this.current = null;
     this.playing = false;
   }
 
   get busy() {
-    return this.playing || this.normal.length + this.priority.length > 0;
+    return this.playing || this.normal.length + this.priority.length + this.minor.length > 0;
   }
 
   /** Số câu thường đang chờ (không tính câu đang đọc) */
@@ -74,6 +122,14 @@ class Voice {
     return this.busy ? 0 : now - this.lastSpokeAt;
   }
 
+  /** tải trước mọi đoạn của câu (server + trình duyệt đều nhớ), để giữa các đoạn không phải chờ tải giọng */
+  private warmed = new WeakSet<Line>();
+  private warm(line: Line) {
+    if (this.warmed.has(line)) return;
+    this.warmed.add(line);
+    for (const s of segments(line.text, this.rate)) void fetch(s.url).catch(() => null);
+  }
+
   private async next() {
     if (this.playing) return;
     const now = Date.now();
@@ -86,24 +142,31 @@ class Voice {
       if (line.keep || now - line.at < MAX_WAIT_MS) break;
       line.done?.();
     }
+    // hết câu chính mới tới câu phụ; câu phụ cũ quá thì bỏ
+    while (!line && (line = this.minor.shift())) if (now - line.at > MINOR_MAX_WAIT_MS) line = undefined;
     if (!line) return;
     this.playing = true;
+    if (line.gapMs) {
+      const gapLine = line;
+      await new Promise((r) => setTimeout(r, gapLine.gapMs));
+      this.playing = false;
+      this.lastSpokeAt = Date.now();
+      gapLine.done?.();
+      void this.next();
+      return;
+    }
+    const segs = segments(line.text, this.rate);
+    this.warm(line);
+    for (const l of [...this.priority, ...this.normal].slice(0, 2)) this.warm(l);
+    // chờ đoạn đầu tải xong rồi mới báo bắt đầu, để camera / hiệu ứng khớp đúng lúc MC cất tiếng
+    if (segs[0]) await Promise.race([fetch(segs[0].url).catch(() => null), new Promise((r) => setTimeout(r, 4000))]);
+    if (!this.playing) return line.done?.(); // stop() trong lúc chờ tải
     line.start?.();
-    let who: 'M' | 'F' = 'M';
     try {
       // "Trời ơi! | ^Hoan hô!" -> đọc thường rồi hô to hơn
-      for (let raw of line.text.split('|')) {
-        raw = raw.trim();
-        const sp = /^(M|F):\s*/.exec(raw);
-        if (sp) {
-          who = sp[1] as 'M' | 'F';
-          raw = raw.slice(sp[0].length);
-        }
-        const hype = raw.startsWith('^');
-        const text = raw.replace(/^\^+/, '');
-        if (!text) continue;
+      for (const { who, url } of segs) {
         this.onSpeaker?.(who);
-        const audio = new Audio(`/api/tts?rate=${this.rate}${hype ? '&hype=1' : ''}${who === 'F' ? '&v=f' : ''}&text=${encodeURIComponent(text)}`);
+        const audio = new Audio(url);
         audio.volume = this.volume;
         this.current = audio;
         await new Promise<void>((resolve) => {

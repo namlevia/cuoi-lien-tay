@@ -9,6 +9,8 @@ export const W = 1080;
 export const H = 1920;
 const NPC_COUNT = 70; // khách đệm (không tên) cho rạp đông
 const MAX_REAL = 160;
+const HEMI_I = 1.15; // buổi tối: tối hơn bản gốc (1.6)
+const SUN_I = 0.85;
 const TAGS_MAX = 36; // bảng tên tối đa mỗi khung hình (đông quá thì chỉ hiện người vừa tương tác)
 
 type V3 = THREE.Vector3;
@@ -59,7 +61,8 @@ class World {
   private camera = new THREE.PerspectiveCamera(46, W / H, 0.1, 120);
   private camPos = v(0, 10.5, 12.5);
   private camLook = v(0, 0, -15);
-  private hemi = new THREE.HemisphereLight('#ffe6d2', '#c9a6c4', 1.6);
+  private hemi = new THREE.HemisphereLight('#ffe6d2', '#8a6c9a', HEMI_I);
+  private sun = new THREE.DirectionalLight('#ffd2a8', SUN_I);
   private guests = new Map<string, Guest>();
   private npcs: Guest[] = [];
   private mcM: Chibi;
@@ -70,6 +73,11 @@ class World {
   private last = 0;
   private t = 0;
   private base: CamMode = 'wide';
+  private shot = { kind: 0, t0: 0, until: 0, dir: 1 };
+  private djFxAt = 0;
+  private carParked = false;
+  private carOnArrive: (() => void) | null = null;
+  private carCamUntil = 0;
   private focus: { id: string | null; mode: CamMode | null; until: number; point?: V3 } = { id: null, mode: null, until: 0 };
   private couple: { groom: string | null; bride: string | null; mode: 'none' | 'gate' | 'walk' | 'stage' } = { groom: null, bride: null, mode: 'none' };
   private partyUntil = 0;
@@ -104,6 +112,8 @@ class World {
   /** 1 = đủ hiệu ứng; máy chậm (dưới ~40 khung/giây) thì tự hạ xuống tới 0.4, mượt lại thì tăng dần */
   quality = 1;
   private slow = 0;
+  private debugFps = typeof location !== 'undefined' && new URLSearchParams(location.search).get('debug') === '1';
+  private frameTimes: number[] = [];
   private nguyet: Chibi;
   private nguyetOn = false;
   private thread: { a: string; b: string; until: number; mesh: THREE.Mesh | null } | null = null;
@@ -115,10 +125,10 @@ class World {
 
   constructor() {
     const s = this.scene;
-    s.background = new THREE.Color('#3b2440');
-    s.fog = new THREE.Fog('#3b2440', 36, 72);
+    s.background = new THREE.Color('#120c1e');
+    s.fog = new THREE.Fog('#120c1e', 34, 70);
     s.add(this.hemi);
-    const sun = new THREE.DirectionalLight('#ffd9b8', 1.25); // nắng chiều ấm
+    const sun = this.sun; // buổi tối: đèn trần ấm thay cho nắng chiều
     sun.position.set(4, 12, 10);
     s.add(sun);
     this.hall = buildHall(s);
@@ -242,7 +252,7 @@ class World {
     s.add(this.ring);
 
     // vòng sáng dưới chân cặp đôi
-    this.glow = new THREE.Mesh(new THREE.RingGeometry(0.5, 1.4, 32), new THREE.MeshBasicMaterial({ color: '#ffd6e0', transparent: true, opacity: 0.6, depthWrite: false }));
+    this.glow = new THREE.Mesh(new THREE.RingGeometry(0.5, 1.4, 32), new THREE.MeshBasicMaterial({ color: '#ffd6e0', transparent: true, opacity: 0.35, depthWrite: false }));
     this.glow.rotation.x = -Math.PI / 2;
     this.glow.visible = false;
     s.add(this.glow);
@@ -268,9 +278,17 @@ class World {
     this.overlay = overlay.getContext('2d');
     this.last = performance.now();
     const loop = (now: number) => {
-      const dt = Math.min(0.05, Math.max(0, (now - this.last) / 1000));
+      // LIVE Studio's browser can drop to a few fps: catch up in small steps so walking keeps pace with the
+      // Date.now() timers and the MC voice instead of running in slow motion (cap 1 s after a stall)
+      let left = Math.min(1, Math.max(0, (now - this.last) / 1000));
+      this.adaptQuality(left);
       this.last = now;
-      this.step(dt);
+      if (this.debugFps) this.frameTimes.push(now);
+      while (left > 0.05) {
+        this.step(0.05, false);
+        left -= 0.05;
+      }
+      this.step(left, true);
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
@@ -419,9 +437,19 @@ class World {
   say(id: string, text: string, ms = 5000) {
     const g = this.guests.get(id);
     if (!g) return;
-    g.bubble = { cv: bubble(text), until: Date.now() + ms };
-    g.active = Date.now();
+    const now = Date.now();
+    g.active = now;
+    // live đông (hàng trăm comment/giây): mỗi giây vẽ tối đa 12 bong bóng mới, để máy không giật vì dựng chữ liên tục
+    if (now - this.bubbleSec >= 1000) {
+      this.bubbleSec = now;
+      this.bubbleCount = 0;
+    }
+    if (++this.bubbleCount > 12) return;
+    g.bubble = { cv: bubble(text), until: now + ms };
   }
+
+  private bubbleSec = 0;
+  private bubbleCount = 0;
 
   setTitle(id: string, title: { text: string; gold: boolean } | null) {
     const g = this.guests.get(id);
@@ -447,13 +475,18 @@ class World {
   // ---------- camera ----------
   /** Lia camera tới 1 người / 1 cảnh trong `ms` rồi về cảnh chính */
   look(target: string | CamMode, ms = 4000) {
+    // đang chờ trả lời ở cổng hoa: giữ máy quay ở người đang quỳ, không lia đi chỗ khác
+    if (this.couple.mode === 'gate' && target !== 'gate') return;
+    // chủ kênh chốt: không quay cận từng khách / từng bàn, chỉ cận cô dâu chú rể
+    const isGuest = target !== 'wide' && target !== 'gate' && target !== 'aisle' && target !== 'stage';
+    if (isGuest && target !== this.couple.groom && target !== this.couple.bride) return;
     if (target === 'wide' || target === 'gate' || target === 'aisle' || target === 'stage') this.focus = { id: null, mode: target, until: Date.now() + ms };
     else if (this.guests.has(target)) this.focus = { id: target, mode: null, until: Date.now() + ms };
   }
 
   /** Zoom vào 1 điểm (1 bàn khách) */
-  lookPoint(p: V3, ms = 6000) {
-    this.focus = { id: null, mode: null, until: Date.now() + ms, point: p.clone() };
+  lookPoint(_p: V3, _ms = 6000) {
+    // đã bỏ quay cận từng bàn (chủ kênh chốt): giữ hàm cho chỗ gọi cũ, không làm gì
   }
 
   /** 2 khách thật để MC mai mối: ưu tiên 2 người cùng bàn. Trả kèm chỗ để zoom camera. */
@@ -500,7 +533,18 @@ class World {
     const pos = v(0, 0, 0);
     const look = v(0, 0, 0);
     const g = gid ? this.guests.get(gid) : null;
-    if (point) {
+    const mc = this.mcM.root.position;
+    if (this.car?.visible && now < this.carCamUntil) {
+      // động phòng: máy quay chếch sau bên phải, bám theo xe hoa
+      const c = this.car.position;
+      // ra khỏi cổng thì máy quay đứng lại nhìn xe khuất sau cổng hoa (không bay theo ra ngoài trời tối)
+      pos.set(c.x + 3.2, 3.6, Math.min(c.z + 6.5, GATE_Z - 3));
+      look.set(c.x, 0.8, Math.min(c.z, GATE_Z + 2));
+    } else if (this.sing.on) {
+      // MC hát: máy quay trước mặt, hơi thấp, nhích chậm
+      pos.set(mc.x + Math.sin(this.t * 0.3) * 0.8, mc.y + 2.2, mc.z + 6.5);
+      look.set(mc.x, mc.y + 1.3, mc.z);
+    } else if (point) {
       // zoom vào bàn: hơi chếch, xoay nhẹ cho có cảm giác máy quay
       // cao hơn + nhìn chúc xuống để cả bàn và bảng tên nằm dưới phần chữ phía trên
       pos.set(point.x * 0.8 + Math.sin(this.t * 0.5) * 0.8, 6, point.z + 6.2);
@@ -519,17 +563,75 @@ class World {
       pos.set(m.x + 1.2, m.y + 2.8, m.z - 6.5);
       look.set(m.x, m.y + 0.8, m.z + 0.5);
     } else if (mode === 'stage') {
-      pos.set(Math.sin(this.t * 0.25) * 1.2, STAGE_Y + 3.2, STAGE_Z + 8.5);
-      look.set(0, STAGE_Y + 1.3, STAGE_Z);
+      const m = this.couple.mode === 'stage' ? this.coupleMid() : null;
+      // cô dâu chú rể trên sân khấu: đổi góc mỗi 7 giây (toàn sân khấu, cận cạnh bục trái, cận chính diện, cận cạnh bục phải)
+      const seg = m ? Math.floor(this.t / 7) % 4 : 0;
+      if (m && seg === 1) {
+        pos.set(-3.6, m.y + 1.7, m.z + 2.6);
+        look.set(m.x, m.y + 1.1, m.z);
+      } else if (m && seg === 2) {
+        pos.set(m.x + Math.sin(this.t * 0.4) * 0.5, m.y + 1.9, m.z + 4);
+        look.set(m.x, m.y + 1.1, m.z);
+      } else if (m && seg === 3) {
+        pos.set(3.6, m.y + 1.7, m.z + 2.6);
+        look.set(m.x, m.y + 1.1, m.z);
+      } else {
+        pos.set(Math.sin(this.t * 0.25) * 1.2, STAGE_Y + 3.2, STAGE_Z + 8.5);
+        look.set(0, STAGE_Y + 1.3, STAGE_Z);
+      }
     } else {
-      pos.set(Math.sin(this.t * 0.08) * 1.8, 10.5, 12.5);
-      look.set(0, 0, -15);
+      this.wideShot(now, pos, look);
     }
     const k = 1 - Math.exp(-dt * 2.2);
     this.camPos.lerp(pos, k);
     this.camLook.lerp(look, k);
     this.camera.position.copy(this.camPos);
     this.camera.lookAt(this.camLook);
+  }
+
+  /** Cảnh toàn lúc rảnh: đổi kiểu máy quay mỗi 9–14 giây (toàn cảnh, bay vòng trên cao, zoom vào/ra, cần cẩu, nhìn từ trên xuống) */
+  private wideShot(now: number, pos: V3, look: V3) {
+    const sh = this.shot;
+    if (now > sh.until) {
+      // toàn cảnh, bay vòng, zoom từ cổng vào bục lễ, zoom lùi ra: góc nào cũng thấy lễ đường trên sân khấu
+      // (bỏ kiểu cần cẩu số 4 lướt sát bàn và kiểu số 5 nhìn thẳng từ trên xuống)
+      const kinds = [0, 1, 2, 2, 3].filter((k) => k !== sh.kind);
+      const kind = kinds[Math.floor(Math.random() * kinds.length)];
+      this.shot = { kind, t0: this.t, until: now + 9000 + Math.random() * 5000, dir: Math.random() < 0.5 ? 1 : -1 };
+    }
+    const { kind, t0, until, dir } = this.shot;
+    const dur = Math.max(1, (until - now) / 1000 + (this.t - t0));
+    const u = Math.min(1, (this.t - t0) / dur);
+    const e = u * u * (3 - 2 * u); // nhanh dần rồi chậm dần
+    const lerp = (a: number, b: number) => a + (b - a) * e;
+    switch (kind) {
+      case 1: {
+        // bay vòng ngang phía trên sảnh, luôn nhìn về sân khấu (thấy lễ đường)
+        const a = dir * (-0.9 + 1.8 * u);
+        pos.set(Math.sin(a) * 14, 10, -8 + Math.cos(a) * 17);
+        look.set(0, 1, -16);
+        break;
+      }
+      case 2: // zoom từ cổng vào tới sân khấu
+        pos.set(dir * lerp(0, 1.5), lerp(10.5, 5.5), lerp(12.5, -6));
+        look.set(0, lerp(0, 1.5), lerp(-15, -21));
+        break;
+      case 3: // zoom từ sân khấu lùi ra toàn sảnh
+        pos.set(dir * lerp(1.5, 0), lerp(5.5, 11), lerp(-6, 13));
+        look.set(0, lerp(1.5, 0), lerp(-21, -14));
+        break;
+      case 4: // cần cẩu bên hông: thấp lướt qua bàn rồi nâng lên cao
+        pos.set(dir * 10, lerp(3.2, 9.5), lerp(4, -4));
+        look.set(0, 0.6, -9);
+        break;
+      case 5: // từ trên xuống, xoay chậm
+        pos.set(Math.sin(this.t * 0.15) * 3 * dir, 18, -3);
+        look.set(0, 0, -7.5);
+        break;
+      default:
+        pos.set(Math.sin(this.t * 0.08) * 1.8, 10.5, 12.5);
+        look.set(0, 0, -15);
+    }
   }
 
   private coupleMid() {
@@ -579,19 +681,38 @@ class World {
     this.walkTo(b, [v(b.c.root.position.x * 0.3, 0, b.c.root.position.z), this.gateSpot(role)], role === 'groom' ? Math.PI / 2 : -Math.PI / 2, 3);
   }
 
-  /** Đồng ý: đổi đồ cưới, khoác tay nhau đi thảm đỏ lên sân khấu */
+  /**
+   * Đồng ý: đứng dậy, tim bay. Thay đồ (`dressCouple`) và đi thảm đỏ (`startWalk`) do useGame gọi đúng lúc
+   * MC bắt đầu đọc câu tương ứng, để lời nói khớp hình.
+   */
   accept(set: WeddingSet) {
-    const ids = [this.couple.groom, this.couple.bride];
-    for (const id of ids) {
+    this.pendingSet = set;
+    for (const id of [this.couple.groom, this.couple.bride]) {
       const g = id ? this.guests.get(id) : null;
       if (!g) continue;
       g.action = null;
       g.hold = null;
       g.c.hold(null);
-      this.dress(g, set);
     }
     this.hearts.burst(this.gateSpot('groom').add(v(0.65, 1.4, 0)), 40, ['#ff4d6d', '#ff8fab', '#ffffff'], 2.5, -1);
-    setTimeout(() => this.walkAisle(), 1800);
+  }
+
+  private pendingSet: WeddingSet | null = null;
+
+  dressCouple() {
+    const set = this.pendingSet;
+    if (!set) return;
+    this.pendingSet = null;
+    for (const id of [this.couple.groom, this.couple.bride]) {
+      const g = id ? this.guests.get(id) : null;
+      if (g) this.dress(g, set);
+    }
+  }
+
+  startWalk() {
+    if (this.couple.mode !== 'gate') return;
+    this.dressCouple(); // phòng câu thay đồ bị bỏ
+    this.walkAisle();
   }
 
   private dress(g: Guest, set: WeddingSet) {
@@ -687,6 +808,139 @@ class World {
     }
     const m = this.coupleMid();
     if (m) this.hearts.burst(m.add(v(0, 1.4, 0)), 60, ['#ff4d6d', '#ff8fab', '#ffffff'], 2.5, -1);
+  }
+
+  /**
+   * Quay người chuẩn bị bái: 'heaven' quay ra cổng lạy trời đất, 'parents' quay vào ba mẹ phía sau sân khấu,
+   * 'each' quay mặt vào nhau. Chắp tay đứng chờ tới khi MC hô "Bái!" (`bowNow`).
+   */
+  bowFace(kind: 'heaven' | 'parents' | 'each') {
+    for (const role of ['groom', 'bride'] as const) {
+      const id = this.couple[role];
+      const g = id ? this.guests.get(id) : null;
+      if (!g) continue;
+      g.face = kind === 'heaven' ? 0 : kind === 'parents' ? Math.PI : role === 'groom' ? Math.PI / 2 : -Math.PI / 2;
+      g.action = { pose: 'bow', until: Date.now() + 20_000 };
+    }
+  }
+
+  /** MC hô "Bái!": cả hai cúi xuống 1 cái cùng lúc */
+  bowNow() {
+    for (const id of [this.couple.groom, this.couple.bride]) {
+      const g = id ? this.guests.get(id) : null;
+      if (!g) continue;
+      if (g.action?.pose !== 'bow') g.action = { pose: 'bow', until: Date.now() + 20_000 };
+      g.c.bowStart = this.t;
+    }
+    const m = this.coupleMid();
+    if (m) this.hearts.burst(m.add(v(0, 1.6, 0)), 24, ['#ff4d6d', '#ffd166', '#ffffff'], 1.8, -1);
+  }
+
+  /**
+   * Ba mẹ hai bên đứng sau sân khấu cho "nhị bái cao đường".
+   * `real` = [người xem làm phụ huynh nhà trai, nhà gái] (tặng quà chúc phúc cao nhất): đi lên sân khấu đứng thật;
+   * ô nào trống thì dùng ông bà tóc bạc của chương trình.
+   */
+  showParents(real: [string | null, string | null] = [null, null]) {
+    const looks: [string, string, Partial<Look>][] = [
+      ['ev-pa1', 'Ba mẹ chú rể', { age: 'old', body: 'suit', main: '#3a2a20', hair: '#d9d9d9', longHair: false, hat: 'none' }],
+      ['ev-pa2', 'Ba mẹ cô dâu', { age: 'old', body: 'aodaiF', main: '#7b2d3b', hair: '#d9d9d9', longHair: true, hairStyle: 'bun', hat: 'none' }],
+    ];
+    looks.forEach(([id, name, look], i) => {
+      const spot = v(i ? 1.3 : -1.3, STAGE_Y, STAGE_Z - 2.4);
+      const r = real[i] ? this.guests.get(real[i]!) : null;
+      if (r && !r.role) {
+        r.busy = true;
+        r.action = null;
+        const p = r.c.root.position;
+        r.path = [v(p.x, 0, TABLES[r.seat?.table ?? 0].z + 2.2), v(0, 0, -14.4), v(0, 0, STAGE_FRONT + 0.8), v(0, STAGE_Y, STAGE_FRONT - 0.4), spot];
+        r.speed = 5;
+        r.face = 0;
+        this.stageParents.push(r.id);
+        return;
+      }
+      if (this.guests.has(id)) return;
+      const g = this.makeGuest(id, name, true, { ...guestLook(id), ...look });
+      g.busy = true;
+      g.c.root.position.copy(spot);
+      g.face = 0;
+      this.guests.set(id, g);
+    });
+  }
+
+  hideParents() {
+    this.remove('ev-pa1');
+    this.remove('ev-pa2');
+    for (const id of this.stageParents) {
+      const g = this.guests.get(id);
+      if (!g) continue;
+      g.busy = false;
+      this.goHome(g);
+    }
+    this.stageParents = [];
+  }
+
+  private stageParents: string[] = [];
+
+  /** nhân vật nữ hay nam (theo tóc dài) — để gọi "ba" hay "mẹ" */
+  isFem(id: string) {
+    return !!this.guests.get(id)?.c.look.longHair;
+  }
+
+  /**
+   * Đưa vào động phòng: xe hoa chạy theo thảm đỏ vào tới trước sân khấu, cô dâu chú rể xuống lên xe,
+   * xe phóng ra cổng. Xong thì 2 người hiện lại ở cổng rồi về chỗ, gọi `done`.
+   */
+  dongPhong(done: () => void) {
+    this.hideParents();
+    this.weddingCar();
+    const car = this.car!;
+    car.position.set(0, 0, GATE_Z + 9);
+    const stop = v(0, 0, STAGE_FRONT + 2.8);
+    this.carPath = [v(0, 0, GATE_Z - 1), stop];
+    this.carParked = true;
+    this.carCamUntil = Date.now() + 40_000;
+    const ids = [this.couple.groom, this.couple.bride].filter((x): x is string => !!x);
+    const couple = ids.map((id) => this.guests.get(id)).filter((g): g is Guest => !!g);
+    this.carOnArrive = () => {
+      let boarded = 0;
+      for (const g of couple) {
+        const x = g.c.root.position.x < 0 ? -0.4 : 0.4;
+        g.action = null;
+        g.path = [v(x, STAGE_Y, STAGE_FRONT - 0.4), v(x, 0, STAGE_FRONT + 0.8), v(x * 1.5, 0, stop.z - 0.2)];
+        g.speed = 2.2;
+        g.onArrive = () => {
+          g.c.root.visible = false;
+          g.shadow.visible = false;
+          if (++boarded < couple.length) return;
+          this.hearts.burst(car.position.clone().add(v(0, 1.6, 0)), 60, ['#ff4d6d', '#ff8fab', '#ffffff'], 2.5, -1);
+          setTimeout(() => {
+            this.carParked = false;
+            this.carPath = [v(0, 0, GATE_Z + 2), v(0, 0, GATE_Z + 24)];
+            this.cannons(80);
+            this.confetti(160);
+          }, 900);
+          setTimeout(() => {
+            this.carCamUntil = 0;
+            couple.forEach((g, i) => {
+              g.c.root.position.set(i ? 0.7 : -0.7, 0, GATE_Z + 2);
+              g.c.root.visible = true;
+              g.shadow.visible = true;
+              g.role = null;
+              this.goHome(g);
+            });
+            this.couple = { groom: null, bride: null, mode: 'none' };
+            this.base = 'wide';
+            done();
+          }, 7000);
+        };
+      }
+      if (!couple.length) {
+        this.carParked = false;
+        this.carCamUntil = 0;
+        done();
+      }
+    };
   }
 
   /** Cặp đôi đứng vẫy tay trên sân khấu tới khi có đám mới */
@@ -882,6 +1136,8 @@ class World {
 
   /** Xe hoa rước dâu: chạy ngang trước dãy bàn đầu, rồi vòng qua sàn trước sân khấu */
   weddingCar() {
+    // xe hoa đang đón cô dâu chú rể về động phòng: không chạy vòng trang trí đè lên
+    if (this.carParked || Date.now() < this.carCamUntil) return;
     if (!this.car) {
       const c = new THREE.Group();
       const m = (g: THREE.BufferGeometry, color: string, x: number, y: number, z: number) => {
@@ -1087,14 +1343,8 @@ class World {
     a.c.lean = dir;
     b.c.lean = -dir;
     const r = Math.random();
-    if (r < 0.35) {
-      a.action = { pose: 'punch', until };
-      b.action = { pose: 'hit', until };
-      setTimeout(() => this.fx.burst(b.c.root.position.clone().add(v(0, 1.5, 0)), 14, ['#ffd166', '#ffffff', '#ffe066'], 1.8, 2), 400);
-      if (a.real) this.say(a.id, ['👊 Bốp!', '😤 Cho chừa!', '🥊 Chiêu này nè!'][Math.floor(Math.random() * 3)], 2500);
-      this.events.fight?.(a.real ? a.id : null, b.real ? b.id : null, a.seat!.table + 1);
-      if (b.real) this.say(b.id, ['😵 Ui da!', '🤕 Đau á!', '😭 Mách mẹ!'][Math.floor(Math.random() * 3)], 2500);
-    } else if (r < 0.75) {
+    // không còn đấm nhau (chủ kênh chốt): chỉ chọc cười, cười với nhau
+    if (r < 0.6) {
       a.action = { pose: 'poke', until };
       b.action = { pose: 'laugh', until };
       if (a.real) this.say(a.id, ['😜 Trêu tí', '👉 Ê ê', '🤭 Hihi'][Math.floor(Math.random() * 3)], 2500);
@@ -1105,10 +1355,63 @@ class World {
     }
   }
 
+  // ---------- tiết mục MC hát: ra giữa sân khấu, đèn rọi, cả sảnh tắt đèn ----------
+  private sing = { on: false, k: 0, flashUntil: 0 };
+  private spot = new THREE.SpotLight('#ffe9c7', 0, 30, 0.26, 0.7, 0);
+  private spotCone = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.12, 1.5, 12, 32, 1, true).translate(0, -6, 0),
+    new THREE.MeshBasicMaterial({ color: '#fff6e6', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+
+  get singing() {
+    return this.sing.on;
+  }
+
+  singStart() {
+    if (!this.spot.parent) {
+      this.spot.target = this.mcM.root;
+      this.scene.add(this.spot, this.spotCone);
+    }
+    this.sing.on = true;
+    this.sing.flashUntil = Date.now() + 1400; // nháy flash vài cái lúc MC bước ra
+  }
+
+  singEnd() {
+    this.sing.on = false;
+  }
+
+  /** trả về true khi MC đang đi ra / đi về */
+  private stepSing(dt: number, now: number) {
+    const sg = this.sing;
+    sg.k += ((sg.on ? 1 : 0) - sg.k) * Math.min(1, dt * 2.5);
+    this.hemi.intensity = HEMI_I * (1 - 0.92 * sg.k);
+    this.sun.intensity = SUN_I * (1 - 0.95 * sg.k);
+    const mc = this.mcM.root;
+    const to = sg.on ? v(0, STAGE_Y, STAGE_FRONT - 0.9) : v(-4.2, STAGE_Y, -21.2);
+    const d = Math.hypot(to.x - mc.position.x, to.z - mc.position.z);
+    const walking = d > 0.05;
+    if (walking) {
+      const step = Math.min(d, 2.4 * dt);
+      mc.position.x += ((to.x - mc.position.x) / d) * step;
+      mc.position.z += ((to.z - mc.position.z) / d) * step;
+      mc.rotation.y = Math.atan2(to.x - mc.position.x, to.z - mc.position.z);
+    } else mc.rotation.y = sg.on ? 0 : 0.35;
+    const lit = sg.k > 0.02;
+    this.spotCone.visible = lit;
+    if (lit) {
+      this.spot.position.set(mc.position.x, 12, mc.position.z + 1.5);
+      this.spotCone.position.set(mc.position.x, 12, mc.position.z);
+      const flash = now < sg.flashUntil && Math.random() < 0.5;
+      // dịu cho khỏi cháy trắng sàn sân khấu khi quay cận (chủ kênh chê chói)
+      this.spot.intensity = flash ? 3 : 1.5 * sg.k;
+      (this.spotCone.material as THREE.MeshBasicMaterial).opacity = (flash ? 0.14 : 0.07) * sg.k;
+    } else this.spot.intensity = 0;
+    return walking;
+  }
+
   // ---------- mỗi khung hình ----------
-  private step(dt: number) {
-    this.t += dt;
-    // tự cân hiệu ứng theo tốc độ máy: chậm 2 giây liền thì giảm, nhanh 6 giây liền thì tăng lại
+  // tự cân hiệu ứng theo tốc độ máy: chậm 2 giây liền thì giảm, nhanh 6 giây liền thì tăng lại (dt = 1 khung thật)
+  private adaptQuality(dt: number) {
     this.slow = dt > 1 / 40 ? this.slow + dt : Math.max(0, this.slow - dt / 3);
     if (this.slow > 2 && this.quality > 0.4) {
       this.quality = Math.max(0.4, this.quality - 0.2);
@@ -1120,6 +1423,10 @@ class World {
       this.renderer?.setPixelRatio(this.quality < 0.7 ? 0.75 : 1);
       this.renderer?.setSize(W, H, false);
     }
+  }
+
+  private step(dt: number, draw: boolean) {
+    this.t += dt;
     const now = Date.now();
     const party = now < this.partyUntil;
     if (party) this.hemi.color.setHSL((this.t * 0.25) % 1, 0.8, 0.75);
@@ -1129,8 +1436,9 @@ class World {
     for (const g of all) this.stepGuest(g, dt, now, party);
 
     // MC
+    const walking = this.stepSing(dt, now);
     for (const [mc, who] of [[this.mcM, 'M'], [this.mcF, 'F']] as const) {
-      mc.pose = this.speaker === who ? 'talk' : party ? 'dance' : 'stand';
+      mc.pose = mc === this.mcM && walking ? 'walk' : this.speaker === who ? 'talk' : party ? 'dance' : 'stand';
       mc.update(this.t, false);
     }
 
@@ -1189,7 +1497,7 @@ class World {
     }
     this.stepStaff(now);
     for (const g of [...this.waiters, ...this.crew, ...this.dancers.map((d) => d.g), ...this.stageDancers.map((d) => d.g)]) this.stepGuest(g, dt, now, false);
-    this.pets.update(dt, this.t);
+    this.pets.update(dt, this.t, now < this.djUntil);
     // hoa hồng rơi nhẹ liên tục + bóng bay + màn quẩy DJ
     this.roseAcc += dt * 3 * this.quality;
     while (this.roseAcc >= 1) {
@@ -1205,6 +1513,27 @@ class World {
       if (b.life <= 0) b.m.visible = false;
     }
     const dj = now < this.djUntil;
+    if (dj) {
+      // nhảy DJ: đèn nháy theo nhịp (~120 BPM), cứ 2,5–5 giây bắn thêm 1–2 hiệu ứng ngẫu nhiên
+      const beat = Math.abs(Math.sin(this.t * Math.PI * 2));
+      this.hemi.intensity = HEMI_I * (0.6 + 0.5 * beat);
+      if (now > this.djFxAt) {
+        this.djFxAt = now + 2500 + Math.random() * 2500;
+        const fx = [
+          () => this.cannons(70),
+          () => this.confetti(140),
+          () => this.smokeBurst(14, 'stage'),
+          () => this.smokeBurst(10, 'hall'),
+          () => this.fountains(3500),
+          () => this.fireworks(2),
+          () => this.goldRain(160),
+          () => this.heartsRain(40),
+          () => this.balloonsUp(10),
+          () => this.petals(120),
+        ];
+        for (let k = Math.random() < 0.5 ? 1 : 2; k > 0; k--) fx[Math.floor(Math.random() * fx.length)]();
+      }
+    }
     for (const [i, l] of this.lasers.entries()) {
       l.visible = dj;
       if (dj) {
@@ -1227,8 +1556,13 @@ class World {
     // xe hoa chạy theo đường, kéo theo tim và kim tuyến
     if (this.car?.visible) {
       const to = this.carPath[0];
-      if (!to) this.car.visible = false;
-      else {
+      if (!to) {
+        // xe hoa đậu chờ cô dâu chú rể lên xe; không đậu thì chạy hết đường là biến mất
+        const cb = this.carOnArrive;
+        this.carOnArrive = null;
+        cb?.();
+        if (!this.carParked) this.car.visible = false;
+      } else {
         const p = this.car.position;
         const d = Math.hypot(to.x - p.x, to.z - p.z);
         if (d < 0.2) this.carPath.shift();
@@ -1266,12 +1600,15 @@ class World {
     }
     // pháo giấy sân khấu mỗi 40 giây cho cảnh luôn có điểm nhấn
     if (this.t - this.lastCannon > 40) this.cannons(90);
-    // đèn rọi lắc qua lại; quẩy thì đổi màu + sáng hơn
+    // đèn rọi quét chỉ bật lúc highlight (cả sảnh quẩy, DJ), bình thường tắt cho khỏi trắng xóa người trên sân khấu
+    const beamsOn = (party || dj) && this.sing.k < 0.5;
     this.beams.forEach((b, i) => {
+      b.visible = beamsOn;
+      if (!beamsOn) return;
       b.rotation.z = Math.sin(this.t * 0.5 + i * 1.3) * 0.45;
       b.rotation.x = Math.cos(this.t * 0.4 + i) * 0.25;
       const m = b.material as THREE.MeshBasicMaterial;
-      m.opacity = party ? 0.14 : 0.07;
+      m.opacity = 0.09;
       if (party) m.color.setHSL((this.t * 0.3 + i * 0.15) % 1, 0.9, 0.7);
       else m.color.set(i < 2 ? '#e6ecff' : i < 4 ? '#ffd1e6' : '#fff4d6');
     });
@@ -1281,8 +1618,19 @@ class World {
     (this.hall.fairy.material as THREE.PointsMaterial).size = 0.08 + Math.abs(Math.sin(this.t * 2)) * 0.04;
 
     this.updateCamera(dt);
+    if (!draw) return;
     this.renderer?.render(this.scene, this.camera);
     this.drawOverlay(now);
+    if (this.debugFps && this.overlay) {
+      // ?view=stage&debug=1: số khung/giây thật để soi máy trong LIVE Studio
+      const cut = performance.now() - 1000;
+      while (this.frameTimes.length && this.frameTimes[0] < cut) this.frameTimes.shift();
+      this.overlay.fillStyle = 'rgba(0,0,0,0.75)';
+      this.overlay.fillRect(0, 0, 420, 70);
+      this.overlay.fillStyle = '#a3e635';
+      this.overlay.font = 'bold 40px monospace';
+      this.overlay.fillText(`${this.frameTimes.length} fps  q${this.quality.toFixed(1)}`, 16, 50);
+    }
   }
 
   private stepGuest(g: Guest, dt: number, now: number, party: boolean) {
@@ -1408,13 +1756,14 @@ class World {
     const ctx = this.overlay;
     if (!ctx) return;
     ctx.clearRect(0, 0, W, H);
+    if (this.sing.k > 0.5) return; // tắt đèn: không hiện bảng tên
     const cam = this.camera;
     const list: { g: Guest; x: number; y: number; d: number }[] = [];
     const p = new THREE.Vector3();
     const staff = [...this.waiters, ...this.crew, this.dj, ...this.dancers.map((d) => d.g), ...this.stageDancers.map((d) => d.g)];
     for (const g of [...this.guests.values(), ...staff]) {
-      p.copy(g.c.root.position);
-      p.y += 1.85;
+      if (!g.c.root.visible) continue; // đang ngồi trong xe hoa
+      g.c.headTop(p);
       const d = p.distanceTo(cam.position);
       p.project(cam);
       if (p.z > 1 || p.x < -1.1 || p.x > 1.1 || p.y < -1.1 || p.y > 1.1) continue;
@@ -1508,7 +1857,7 @@ class Smoke {
       const k = 1 - it.life / it.max; // 0 -> 1
       it.s.position.addScaledVector(it.vel, dt);
       it.s.scale.setScalar(it.size * (0.6 + k * 1.4));
-      it.s.material.opacity = Math.sin(k * Math.PI) * 0.32;
+      it.s.material.opacity = Math.sin(k * Math.PI) * 0.18; // khói mỏng, không làm trắng cô dâu chú rể
     }
   }
 }

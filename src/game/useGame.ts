@@ -8,21 +8,27 @@ import { GiftThanker, OncePerPerson, RecentPeople, plain } from '../live/chatter
 import { NGUYEN, type Nguyen } from './seDuyen';
 import { IS_STAGE } from '../live/page';
 import { GAME } from './config';
-import { exactName, matchName, namePrefixes, other, parseCommand, pickRole, type Role } from './rules';
+import { matchName, nameScore, other, parseCommand, pickRole, type Role } from './rules';
 import { pickWeddingSet } from './world/chibi3d';
 import { world } from './world/world';
 import { music } from './music';
 
 // Bốc kiểu "rút bài": đọc hết 1 vòng mới lặp lại, để giọng MC không bị nhắc lại câu cũ
 const bags = new Map<readonly unknown[], number[]>();
+const lastPicked = new Map<readonly unknown[], number>();
 function pick<T>(list: readonly T[]): T | undefined {
   if (!list.length) return undefined;
   let bag = bags.get(list);
   if (!bag?.length) {
     bag = list.map((_, i) => i).sort(() => Math.random() - 0.5);
+    // vòng mới không mở đầu bằng đúng câu vừa đọc cuối vòng trước
+    const prev = lastPicked.get(list);
+    if (bag.length > 1 && bag[bag.length - 1] === prev) [bag[0], bag[bag.length - 1]] = [bag[bag.length - 1], bag[0]];
     bags.set(list, bag);
   }
-  return list[bag.pop()!];
+  const i = bag.pop()!;
+  lastPicked.set(list, i);
+  return list[i];
 }
 
 export type Phase = 'idle' | 'proposal' | 'walk' | 'vows' | 'after';
@@ -35,6 +41,23 @@ interface Wedding {
   targetName: string; // tên được @ (khi người đó chưa vào tiệc)
   until: number; // hạn trả lời
   nudged: number;
+  pkDone?: boolean; // mỗi đám chỉ PK cướp dâu 1 lần
+  yesAfterPk?: boolean; // người được hỏi gõ đồng ý lúc đang PK
+  open?: boolean; // người được hỏi im lặng / vắng mặt: ai gõ đồng ý trước là được cưới
+}
+
+/** PK cướp dâu đang diễn ra */
+interface Pk {
+  w: Wedding;
+  until: number;
+  atk: number; // điểm phe cướp
+  def: number; // điểm phe giữ
+  atkBy: Map<string, number>; // ai góp bao nhiêu điểm bên cướp (người nhiều nhất thế chỗ nếu thắng)
+  atkIds: Set<string>;
+  last: Map<string, number>; // lần tính điểm comment gần nhất của mỗi người (1 điểm/giây)
+  challenger: string;
+  dirty: boolean; // điểm đổi, cần vẽ lại bảng
+  saidMid: boolean;
 }
 
 interface Pending {
@@ -51,6 +74,7 @@ export interface WeddingView {
   brideAva: string;
   stealRole: Role;
   price: number;
+  pkDone: boolean; // đám này đã PK cướp dâu rồi (ẩn lời mời "gõ CƯỚP")
   until: number;
   waiting: string; // tên người đang được hỏi (chưa trả lời)
 }
@@ -80,6 +104,8 @@ export function useGame() {
   const [likeNext, setLikeNext] = useState(GAME.likeMilestones[0]);
   const [vote, setVote] = useState<{ until: number; yes: number; no: number } | null>(null);
   const [dark, setDark] = useState(false);
+  const [pk, setPk] = useState<{ until: number; atk: number; def: number; atkName: string; defName: string } | null>(null);
+  const [parents, setParents] = useState<{ groom: string; bride: string } | null>(null);
   const likeBase = useRef<number | null>(null);
   const avatars = useRef(new Map<string, string>());
   const names = useRef(new Map<string, string>()); // id -> tên hiển thị (đã che từ bậy)
@@ -89,7 +115,7 @@ export function useGame() {
       GAME.greetEveryMs,
       GAME.namesPerGreeting,
       // người lướt vào: chào ưu tiên (chỉ sau câu cảm ơn quà)
-      (n) => voice.say(pick(GAME.greetings)!(joinNames(n)), true),
+      (n) => !inCeremony() && voice.sayMinor(pick(GAME.greetings)!(joinNames(n))),
       () => voice.waitingPriority >= 2,
     ),
     gifts: new GiftThanker(GAME.giftThanksCooldownMs, GAME.giftBig),
@@ -121,7 +147,29 @@ export function useGame() {
     actLimit: limiter(6_000),
     crewLimit: limiter(45_000),
     lastDuyen: Date.now() - GAME.duyen.everyMs + 90_000, // lần đầu sau ~1,5 phút
+    lastChatter: '',
+    pk: null as null | Pk,
+    bless: new Map<string, number>(), // xu chúc phúc trong đám hiện tại
+    parents: [null, null] as [string | null, string | null], // [phụ huynh nhà trai, nhà gái]
+    djPending: false, // có quà / tim gọi nhảy lúc đang cưới: nhảy sau khi cưới xong
+    chatterGap: GAME.chatterQuietMs,
   }));
+
+  /** đám cưới đang chạy (từ lúc cầu hôn tới khi xe hoa đi) */
+  function weddingBusy() {
+    return !!s.w && s.w.phase !== 'after';
+  }
+
+  /** tiết mục khác đang chạy: nhảy DJ, MC hát, Nguyệt Lão, bình chọn đẹp đôi */
+  function showBusy() {
+    return world.djOn || world.singing || !!s.duyen || !!s.vote;
+  }
+
+  /** đang cử hành lễ (đi thảm đỏ, bái đường, xe hoa đón): MC chỉ nói về cô dâu chú rể, không chào khách */
+  function inCeremony() {
+    const ph = s.w?.phase;
+    return ph === 'walk' || ph === 'vows';
+  }
 
   const safeName = (nickname: string, username: string) => (containsBanned(nickname) ? username : nickname);
   const shown = (id: string) => names.current.get(id) ?? id;
@@ -140,6 +188,7 @@ export function useGame() {
       brideAva: (w.ids.bride && avatars.current.get(w.ids.bride)) || '',
       stealRole: w.stealRole,
       price: GAME.stealMin,
+      pkDone: !!w.pkDone,
       until: w.until,
       waiting: w.phase === 'proposal' ? (w.ids[other(w.stealRole)] ? shown(w.ids[other(w.stealRole)]!) : w.targetName) : '',
     });
@@ -154,23 +203,26 @@ export function useGame() {
     return name;
   };
 
-  /** tìm người đang trong tiệc theo tên được @ */
-  // tên dài khớp trước: "@Lan Anh" chọn Lan Anh dù phòng có cả Lan
+  /**
+   * Tìm người đang trong tiệc theo chữ gõ sau @ (tên hiển thị hoặc username).
+   * Ưu tiên khớp đúng; khớp gần đúng (đầu tên / một phần tên) chỉ nhận khi cả sảnh có đúng 1 người khớp.
+   */
   const findGuest = (typed: string) => {
-    for (const t of namePrefixes(typed)) {
-      const id = world.ids().find((x) => exactName(t, shown(x), x));
-      if (id) return id;
-    }
-    return null;
+    const scored = world.ids().map((x) => ({ x, s: nameScore(typed, shown(x), x) })).filter((e) => e.s > 0);
+    const best = Math.max(0, ...scored.map((e) => e.s));
+    const top = scored.filter((e) => e.s === best);
+    if (best === 3) return top[0].x;
+    return top.length === 1 ? top[0].x : null;
   };
 
   // ---------- cầu hôn ----------
   const propose = (p: Pending) => {
-    if (s.w && s.w.phase !== 'after') {
+    // không đè giai đoạn: đang có đám, đang nhảy, MC đang hát, Nguyệt Lão, bình chọn -> xếp hàng chờ xong
+    if (weddingBusy() || showBusy()) {
       if (s.queue.some((q) => q.id === p.id)) return;
       if (s.queue.length >= GAME.maxQueue) return void voice.say(GAME.queueFull);
       s.queue.push(p);
-      voice.say(GAME.queued(spoken(p.id), s.queue.length));
+      voice.say(weddingBusy() ? GAME.queued(spoken(p.id), s.queue.length) : GAME.queuedShow(spoken(p.id), s.queue.length));
       return sync();
     }
     const targetId = findGuest(p.target);
@@ -180,11 +232,12 @@ export function useGame() {
       phase: 'proposal',
       ids: { groom: null, bride: null, [role]: p.id } as Record<Role, string | null>,
       stealRole: role,
-      targetName: targetId ? shown(targetId) : p.target.replace(/[@]/g, ''),
+      targetName: targetId ? shown(targetId) : p.target.replace(/^@+\s*/, '').slice(0, 30), // chưa vào tiệc: giữ chữ đã gõ để chờ đúng người
       until: Date.now() + GAME.answerMs,
       nudged: 0,
     };
     if (targetId) s.w.ids[other(role)] = targetId;
+    resetParents();
     world.setNames('', '');
     world.proposal(p.id, role, targetId);
     const a = spoken(p.id);
@@ -200,6 +253,11 @@ export function useGame() {
   const accept = () => {
     const w = s.w;
     if (!w || w.phase !== 'proposal') return;
+    // đang PK cướp dâu: ghi nhận đồng ý, PK xong mới lên lễ đường
+    if (s.pk) {
+      w.yesAfterPk = true;
+      return;
+    }
     w.phase = 'walk';
     const set = pickWeddingSet();
     world.accept(set);
@@ -214,9 +272,14 @@ export function useGame() {
       world.confetti(160);
       world.heartsRain(60);
     });
-    voice.say(set.rare ? GAME.outfitFunny : GAME.outfit(set.name), false, undefined, true);
-    voice.say(pick(GAME.walk)!(spoken(w.ids.groom), spoken(w.ids.bride)), false, undefined, true, () => world.smokeBurst(20, 'aisle'));
-    voice.say(GAME.walkSteal(GAME.stealMin), false, undefined, false, undefined, () => s.w?.phase === 'walk');
+    // thay đồ đúng lúc MC giới thiệu bộ đồ, bước đi đúng lúc MC hô lên lễ đường (khớp lời với hình)
+    voice.say(set.rare ? GAME.outfitFunny : pick(GAME.outfit)!(set.name), false, undefined, true, () => world.dressCouple());
+    voice.say(pick(GAME.walk)!(spoken(w.ids.groom), spoken(w.ids.bride)), false, undefined, true, () => {
+      world.startWalk();
+      world.smokeBurst(20, 'aisle');
+    });
+    // phòng hờ giọng đọc kẹt: quá 40 giây vẫn chưa đi thì tự đi
+    setTimeout(() => s.w === w && w.phase === 'walk' && world.startWalk(), 40_000);
     sync();
   };
 
@@ -242,26 +305,32 @@ export function useGame() {
     sync();
     const g = spoken(w.ids.groom);
     const b = spoken(w.ids.bride);
-    const V = GAME.vows[s.vowsNo++ % GAME.vows.length];
     const keep = true;
     const st = () => world.look('stage', 60_000);
-    voice.say(V.open(g, b), false, undefined, keep, () => {
+    voice.say(pick(GAME.ceremonyOpen)!(g, b), false, undefined, keep, () => {
       st();
       world.fountains(7000);
       world.smokeBurst(16);
     });
-    voice.say(V.promiseG(g), false, undefined, keep, () => w.ids.groom && world.look(w.ids.groom, 6000));
-    voice.say(V.promiseB(b), false, undefined, keep, () => w.ids.bride && world.look(w.ids.bride, 6000));
-    voice.say(GAME.ring, false, () => world.ringExchange(), keep, st);
-    voice.say(GAME.hug, false, () => world.hug(6000), keep);
-    voice.say(GAME.toast, false, undefined, keep, () => {
-      world.partyAll(9000);
-      world.cannons();
-      world.fountains(8000);
-      world.confetti(200);
-      world.fireworks(4);
+    // bái đường: MC xướng (quay người, chắp tay) -> hô "Bái!" (cúi đúng lúc đó) -> nói tiếp
+    for (const step of GAME.bai) {
+      voice.say(pick(step.call)!, false, undefined, keep, () => {
+        if (step.kind === 'parents') world.showParents(s.parents); // người tặng quà chúc phúc nhiều nhất lên làm ba mẹ
+        world.bowFace(step.kind);
+      });
+      voice.say(GAME.baiCue, false, undefined, keep, () => world.bowNow());
+      voice.say(pick(step.after)!, false, undefined, keep);
+    }
+    // đưa vào động phòng: xe hoa vào tận thảm đỏ đón, phóng ra cổng
+    voice.say(pick(GAME.dongPhong)!(g, b), false, undefined, keep, () => {
+      world.petals(260);
+      world.fireworks(3);
+      world.dongPhong(() => {
+        finish();
+        voice.say(pick(GAME.closing)!(g, b)); // chúc + mời cặp tiếp theo gõ cưới
+        voice.gap(3500); // nghỉ một nhịp trước cảnh sau
+      });
     });
-    voice.say(pick(GAME.closing)!(g, b), false, () => finish(), keep, () => world.petals(260));
   };
 
   const finish = () => {
@@ -287,17 +356,28 @@ export function useGame() {
   // ---------- Quẩy DJ: cả sảnh lên sân khấu, nhạc DJ, MC hô liên tục ----------
   const startDj = () => {
     if (world.djOn) return;
+    // đám cưới được ưu tiên: đang có đám (hoặc còn đám chờ) thì để dành, cưới xong mới nhảy
+    if (weddingBusy() || world.singing || s.queue.length) {
+      s.djPending = true;
+      return;
+    }
+    s.djPending = false;
     s.lastDj = Date.now();
     world.djParty(GAME.djMs);
     music.dj(GAME.djMs);
     world.look('stage', 8000);
     voice.say(pick(GAME.djIntro)!, true);
-    const hype = Math.floor(GAME.djMs / 6000);
+    // nhảy 3 phút: MC hô mỗi 15 giây, camera đổi giữa toàn cảnh và sân khấu
+    const hype = Math.floor(GAME.djMs / GAME.djHypeEveryMs) - 1;
     for (let i = 1; i <= hype; i++)
       setTimeout(() => {
-        if (world.djOn) voice.say(pick(GAME.djHype)!, true, undefined, false, () => world.look(i % 2 ? 'wide' : 'stage', 5000));
-      }, i * 5500);
-    setTimeout(() => voice.say(GAME.djEnd), GAME.djMs + 500);
+        // xen kẽ: câu hô nhảy, rồi câu chúc sức khỏe / tình duyên
+        if (world.djOn) voice.say(pick(i % 2 ? GAME.djHype : GAME.djWish)!, true, undefined, false, () => world.look(i % 2 ? 'wide' : 'stage', 8000));
+      }, i * GAME.djHypeEveryMs);
+    setTimeout(() => {
+      voice.say(GAME.djEnd);
+      voice.gap(3000); // nghỉ một nhịp trước cảnh sau
+    }, GAME.djMs + 500);
   };
 
   // ---------- Bình chọn đẹp đôi ----------
@@ -324,13 +404,34 @@ export function useGame() {
   };
 
   // ---------- Sự kiện bất ngờ ----------
+  /** MC ra giữa sân khấu, đèn rọi, cả sảnh tắt đèn, hát 2–3 câu rồi về chỗ */
+  const startSong = () => {
+    if (world.singing || weddingBusy() || showBusy() || s.queue.length) return;
+    const E = GAME.ev;
+    let startAt = Date.now();
+    voice.say(E.songIntro, false, undefined, true, () => {
+      startAt = Date.now();
+      world.singStart();
+    });
+    voice.say(pick(E.songs)!, false, () => {
+      // giữ đèn rọi ít nhất 10 giây (bản xem trước im lặng cũng thấy được tiết mục)
+      setTimeout(() => {
+        world.singEnd();
+        world.confetti(120);
+        voice.say(E.songOutro);
+      }, Math.max(0, startAt + 10_000 - Date.now()));
+    }, true);
+  };
+
   const runEvent = () => {
+    if (weddingBusy() || world.djOn || world.singing || s.duyen) return;
     const w = s.w;
     const onStage = w?.phase === 'after' && w.ids.groom && w.ids.bride;
-    const kinds = onStage ? ['blackout', 'mom', 'ex', 'envelope'] : ['blackout', 'envelope'];
+    const kinds = onStage ? ['blackout', 'mom', 'ex', 'envelope', 'song'] : ['blackout', 'envelope', 'song', 'song'];
     const kind = kinds[Math.floor(Math.random() * kinds.length)];
     const E = GAME.ev;
-    if (kind === 'envelope') {
+    if (kind === 'song') startSong();
+    else if (kind === 'envelope') {
       voice.say(E.envelope, true, undefined, false, () => {
         world.goldRain(400);
         world.confetti(200);
@@ -370,7 +471,7 @@ export function useGame() {
 
   // ---------- Nguyệt Lão se duyên ----------
   const startDuyen = () => {
-    if (s.duyen || (s.w && s.w.phase !== 'after')) return;
+    if (weddingBusy() || showBusy() || s.queue.length) return;
     s.lastDuyen = Date.now();
     const until = Date.now() + GAME.duyen.windowMs;
     s.duyen = { ids: new Set(), until, said: 0, maker: null };
@@ -424,50 +525,134 @@ export function useGame() {
   };
 
   const nextInQueue = () => {
-    if (s.w && s.w.phase !== 'after') return;
+    if (weddingBusy() || showBusy()) return;
     const p = s.queue.shift();
     sync();
     if (p && world.has(p.id)) propose(p);
+    else if (!s.queue.length && s.djPending) startDj(); // hết đám chờ mới tới lượt nhảy để dành
   };
 
-  // ---------- cướp dâu / cướp rể bằng quà ----------
-  /** true nếu quà này dùng để cướp (khi đó MC đọc câu cướp thay câu cảm ơn) */
-  const trySteal = (id: string, coins: number) => {
+  // ---------- PK cướp dâu / cướp rể ----------
+  // Lúc chờ đồng ý: ai comment "cướp" (hoặc tặng từ 30 xu) là mở PK 30 giây.
+  // Phe CÔNG: comment "cướp". Phe THỦ: comment "không". 1 comment = 1 điểm (mỗi người tối đa 1 điểm/giây cho công bằng
+  // và đỡ nghẽn khi hàng nghìn comment), quà 1 xu = 10 điểm. Công thắng: người góp nhiều điểm nhất bên công thế chỗ.
+  const isCouple = (w: Wedding, id: string) => w.ids.groom === id || w.ids.bride === id;
+
+  const pkView = () => {
+    const p = s.pk;
+    if (!p) return setPk(null);
+    setPk({ until: p.until, atk: p.atk, def: p.def, atkName: shown(p.challenger), defName: shown(p.w.ids[p.w.stealRole] ?? '') });
+  };
+
+  const startPk = (challenger: string) => {
     const w = s.w;
-    if (!w || (w.phase !== 'proposal' && w.phase !== 'walk')) return false;
-    if (w.ids.groom === id || w.ids.bride === id) {
-      // người được hỏi tặng quà = đồng ý luôn
-      if (w.phase === 'proposal' && w.ids[other(w.stealRole)] === id) accept();
-      return false;
-    }
-    // người được hỏi chưa vào tiệc mà giờ tặng quà
-    if (w.phase === 'proposal' && !w.ids[other(w.stealRole)] && matchName(w.targetName, shown(id), id)) {
-      w.ids[other(w.stealRole)] = id;
-      world.targetCome(id, other(w.stealRole));
-      setTimeout(accept, 2500);
-      return false;
-    }
-    if (coins < GAME.stealMin) {
-      if (coins >= 10 && s.stealLowLimit('all')) voice.say(GAME.stealLow(spoken(id), GAME.stealMin));
-      return false;
-    }
-    const oldId = w.ids[w.stealRole];
-    if (!oldId) return false;
-    w.ids[w.stealRole] = id;
-    world.steal(oldId, id);
-    world.setTitle(id, { text: GAME.titles.stealer(w.stealRole), gold: true });
-    world.setTitle(oldId, { text: GAME.titles.robbed, gold: false });
-    world.fireworks(2);
-    world.cannons(80);
-    voice.say(pick(GAME.stolen)!(spoken(id), spoken(oldId), w.stealRole), true, undefined, true);
-    // đang chờ trả lời mà người được hỏi đã có mặt: tiền trao cháo múc, lên lễ đường luôn
-    if (w.phase === 'proposal' && w.ids[other(w.stealRole)]) {
-      voice.say(GAME.stealAccept, true);
-      setTimeout(accept, 3500);
-    }
-    if (w.phase === 'walk' && w.ids.groom && w.ids.bride) world.setNames(shown(w.ids.groom), shown(w.ids.bride));
-    sync();
+    if (!w || w.phase !== 'proposal' || w.pkDone || s.pk || isCouple(w, challenger) || !w.ids[w.stealRole]) return false;
+    w.pkDone = true;
+    const until = Date.now() + GAME.pk.ms;
+    w.until += GAME.pk.ms; // dừng đồng hồ trả lời trong lúc PK
+    s.pk = { w, until, atk: 0, def: 0, atkBy: new Map(), atkIds: new Set(), last: new Map(), challenger, dirty: true, saidMid: false };
+    world.say(challenger, '⚔️ Cướp!', 3000);
+    sync(); // ẩn lời mời "gõ CƯỚP" (mỗi đám PK 1 lần)
+    voice.say(pick(GAME.pk.start)!(spoken(challenger), spoken(w.ids[w.stealRole])), true, undefined, true, () => world.look('gate', GAME.pk.ms));
+    pkView();
     return true;
+  };
+
+  const pkPoint = (id: string, side: 'atk' | 'def', pts: number) => {
+    const p = s.pk;
+    if (!p) return;
+    if (side === 'atk') {
+      p.atk += pts;
+      p.atkBy.set(id, (p.atkBy.get(id) ?? 0) + pts);
+      p.atkIds.add(id);
+    } else p.def += pts;
+    p.dirty = true;
+  };
+
+  /** comment trong lúc PK: true nếu đã tính điểm (không xử lý tiếp như comment thường) */
+  const pkComment = (id: string, text: string) => {
+    const p = s.pk;
+    if (!p) return false;
+    const t = plain(text);
+    const atk = /(^| )cuop( |$)/.test(t);
+    const def = !atk && /(^| )(khong|ko|k|giu|thu)( |$)/.test(t);
+    if (!atk && !def) return false;
+    const now = Date.now();
+    if (now - (p.last.get(id) ?? 0) < 1000) return true; // 1 điểm/giây/người
+    p.last.set(id, now);
+    // cô dâu chú rể chỉ được giữ, không tự cướp mình
+    const side = atk && !isCouple(p.w, id) ? 'atk' : 'def';
+    pkPoint(id, side, 1);
+    if (p.last.size < 60 || Math.random() < 0.2) world.say(id, side === 'atk' ? '⚔️ Cướp!' : '🛡️ Không!', 1500);
+    return true;
+  };
+
+  const endPk = () => {
+    const p = s.pk;
+    if (!p) return;
+    s.pk = null;
+    setPk(null);
+    const w = p.w;
+    if (s.w !== w || w.phase !== 'proposal') return;
+    const oldId = w.ids[w.stealRole]!;
+    const winner =
+      p.atk > p.def
+        ? [...p.atkBy.entries()].filter(([x]) => world.has(x) && !isCouple(w, x)).sort((a, b) => b[1] - a[1])[0]?.[0]
+        : undefined;
+    if (winner) {
+      w.ids[w.stealRole] = winner;
+      world.steal(oldId, winner);
+      world.setTitle(winner, { text: GAME.titles.stealer(w.stealRole), gold: true });
+      world.setTitle(oldId, { text: GAME.titles.robbed, gold: false });
+      world.fireworks(2);
+      world.cannons(80);
+      voice.say(GAME.pk.atkWin(spoken(winner), spoken(oldId), p.atk, p.def), true, undefined, true);
+      sync();
+      // người được hỏi đã có mặt: thắng PK là lên lễ đường luôn
+      if (w.ids[other(w.stealRole)]) {
+        voice.say(GAME.stealAccept, true);
+        setTimeout(accept, 3500);
+      }
+      return;
+    }
+    world.setTitle(oldId, { text: GAME.titles.kept, gold: true });
+    world.heartsAt(oldId, 30);
+    voice.say(GAME.pk.defWin(spoken(oldId), p.atk, p.def), true, undefined, true);
+    if (w.yesAfterPk) setTimeout(accept, 2500);
+  };
+
+  // ---------- Quà chúc phúc: ai tặng cao nhất trong đám được lên làm ba / mẹ cô dâu, chú rể ----------
+  // s.parents = [phụ huynh nhà trai, phụ huynh nhà gái]; người tặng nhiều nhất làm bên nhà gái, nhì làm bên nhà trai
+  const parentLabel = (id: string, side: 0 | 1) => `${world.isFem(id) ? 'Mẹ' : 'Ba'} ${side ? 'cô dâu' : 'chú rể'}`;
+
+  const resetParents = () => {
+    for (const id of s.parents) if (id) world.setTitle(id, null);
+    s.parents = [null, null];
+    s.bless.clear();
+    setParents(null);
+  };
+
+  const bless = (id: string, coins: number) => {
+    const w = s.w;
+    if (!w || w.phase === 'after' || isCouple(w, id)) return;
+    s.bless.set(id, (s.bless.get(id) ?? 0) + coins);
+    const top = [...s.bless.entries()].filter(([x]) => world.has(x) && !isCouple(w, x)).sort((a, b) => b[1] - a[1]);
+    const next: [string | null, string | null] = [top[1]?.[0] ?? null, top[0]?.[0] ?? null];
+    ([1, 0] as const).forEach((side) => {
+      const nid = next[side];
+      if (nid === s.parents[side]) return;
+      const old = s.parents[side];
+      if (old && !next.includes(old)) world.setTitle(old, null);
+      if (nid) {
+        world.setTitle(nid, { text: `👪 ${parentLabel(nid, side)}`, gold: true });
+        voice.sayMinor(GAME.parentsTake(spoken(nid), parentLabel(nid, side).toLowerCase()));
+      }
+    });
+    s.parents = next;
+    setParents({
+      groom: next[0] ? `${parentLabel(next[0], 0)}: ${cut(shown(next[0]), 12)}` : '',
+      bride: next[1] ? `${parentLabel(next[1], 1)}: ${cut(shown(next[1]), 12)}` : '',
+    });
   };
 
   useEffect(() => {
@@ -475,11 +660,8 @@ export function useGame() {
     voice.onSpeaker = (who) => world.setSpeaker(who);
     world.events = {
       coupleOnStage: runVows,
-      fight: (a, b, table) => {
-        if (!s.fightLimit('all') || voice.waiting > 1) return;
-        if (a && b) voice.say(pick(GAME.fight)!(spoken(a), spoken(b)), false, undefined, false, () => world.look(b, 4000));
-        else voice.say(pick(GAME.fightTable)!(table));
-      },
+      // chủ kênh bỏ chuyện đánh nhau: MC không bình luận (bàn tiệc cũng không còn đấm nhau, chỉ chọc cười)
+      fight: () => {},
     };
     return () => {
       world.events = {};
@@ -521,6 +703,12 @@ export function useGame() {
           return;
         }
       }
+      // PK cướp dâu: đang PK thì "cướp"/"không" là điểm; đang chờ đồng ý mà có người comment "cướp" thì mở PK
+      if (s.pk && pkComment(id, e.comment)) return;
+      if (w?.phase === 'proposal' && !w.pkDone && /(^| )cuop( |$)/.test(plain(e.comment)) && startPk(id)) {
+        s.pk!.last.set(id, Date.now());
+        return pkPoint(id, 'atk', 1);
+      }
       const cmd = parseCommand(e.comment);
       if (cmd?.type === 'propose') {
         if (w && (w.ids.groom === id || w.ids.bride === id) && w.phase !== 'after') return;
@@ -532,25 +720,25 @@ export function useGame() {
         world.say(id, '💖 Đồng ý!', 4000);
         return accept();
       }
+      // người được hỏi không trả lời / không có mặt: MC mở cho cả sảnh, ai gõ đồng ý trước là được cưới
+      if (cmd?.type === 'yes' && w?.phase === 'proposal' && w.open && w.ids.groom !== id && w.ids.bride !== id) {
+        const role = other(w.stealRole);
+        const old = w.ids[role];
+        w.ids[role] = id;
+        w.open = false;
+        if (old) world.steal(old, id);
+        else world.targetCome(id, role);
+        world.say(id, '💖 Đồng ý!', 4000);
+        voice.say(GAME.openTaken(spoken(id), spoken(w.ids[w.stealRole])), true);
+        sync();
+        setTimeout(() => s.w === w && accept(), 3000);
+        return;
+      }
       if (cmd?.type === 'no' && isTarget) {
         world.say(id, '🙅 Không!', 4000);
         return endProposal('no');
       }
-      if (cmd?.type === 'punch' || cmd?.type === 'tease') {
-        const target = findGuest(cmd.target);
-        if (!target || target === id) {
-          world.say(id, maskBanned(e.comment));
-          if (!target && s.actLimit('missing')) voice.say(GAME.noTarget(speakableName(cmd.target)));
-          return;
-        }
-        if (!world.attack(id, target, cmd.type === 'punch' ? 'punch' : 'poke')) return;
-        world.say(id, cmd.type === 'punch' ? '👊 Đứng lại đó!' : '😜 Ê ê!', 2500);
-        if (s.actLimit('all')) {
-          const lines = cmd.type === 'punch' ? GAME.fight : GAME.tease;
-          setTimeout(() => voice.say(pick(lines)!(spoken(id), spoken(target)), false, undefined, false, () => world.look(target, 4500)), 1500);
-        }
-        return;
-      }
+      // chủ kênh bỏ lệnh ĐẤM / TRÊU @tên và ZÔ: gõ mấy chữ đó chỉ hiện bong bóng như comment thường
       if (cmd?.type === 'dance') {
         const now = Date.now();
         s.danceCalls = [...s.danceCalls.filter((t) => now - t < 30_000), now];
@@ -561,7 +749,7 @@ export function useGame() {
         }
         world.joinDance(id);
         world.say(id, '💃 Quẩy!', 2500);
-        if (s.actLimit('dance')) voice.say(pick(GAME.danceJoin)!(spoken(id)));
+        if (!inCeremony() && s.actLimit('dance')) voice.sayMinor(pick(GAME.danceJoin)!(spoken(id)));
         return;
       }
       if (cmd?.type === 'duyen') {
@@ -579,15 +767,6 @@ export function useGame() {
         }
         return;
       }
-      if (cmd?.type === 'zo') {
-        world.zo(id);
-        world.say(id, '🥂 Zô!', 2500);
-        const now = Date.now();
-        s.zoCount = s.zoCount.filter((t) => now - t < 10_000);
-        s.zoCount.push(now);
-        if (s.zoCount.length >= 5 && s.zoLimit('all')) voice.say(GAME.zoLine);
-        return;
-      }
       // comment thường: bong bóng trên đầu (đã che từ bậy). Không đọc nguyên văn.
       world.say(id, maskBanned(e.comment));
     },
@@ -598,7 +777,27 @@ export function useGame() {
       const name = meet(id, e.nickname, e.avatar);
       const coins = e.diamondCount * e.repeatCount;
       setLastGift({ ...e, nickname: name, coins });
-      if (trySteal(id, coins)) return;
+      const w = s.w;
+      if (w?.phase === 'proposal') {
+        // người được hỏi tặng quà = đồng ý luôn; người được @ chưa vào tiệc mà giờ tặng quà = ra cổng hoa rồi đồng ý
+        if (w.ids[other(w.stealRole)] === id) accept();
+        else if (!w.ids[other(w.stealRole)] && !isCouple(w, id) && matchName(w.targetName, shown(id), id)) {
+          w.ids[other(w.stealRole)] = id;
+          world.targetCome(id, other(w.stealRole));
+          setTimeout(accept, 2500);
+        }
+      }
+      // quà trong PK: 1 xu = 10 điểm, tính cho phe người tặng đã chọn (chưa chọn thì tính phe giữ = chúc phúc)
+      let pkAtk = false;
+      if (s.pk) {
+        pkAtk = (s.pk.atkIds.has(id) || s.pk.challenger === id) && !isCouple(s.pk.w, id);
+        pkPoint(id, pkAtk ? 'atk' : 'def', coins * GAME.pk.giftMul);
+      } else if (w?.phase === 'proposal' && coins >= GAME.stealMin && !isCouple(w, id) && startPk(id)) {
+        // tặng từ 30 xu lúc chờ đồng ý: mở PK, quà tính luôn cho phe cướp
+        pkPoint(id, 'atk', coins * GAME.pk.giftMul);
+        pkAtk = true;
+      }
+      if (!pkAtk) bless(id, coins);
       if (s.duyen && !s.duyen.maker && Date.now() < s.duyen.until && world.has(id)) {
         s.duyen.maker = id;
         world.matchmaker(id);
@@ -614,7 +813,7 @@ export function useGame() {
       if (coins >= 299) startDj();
       if (coins >= 30) {
         world.dance(coins >= 99 ? 10000 : 6000);
-        if (s.crewLimit('all')) voice.say(pick(GAME.danceCrew)!);
+        if (s.crewLimit('all')) voice.sayMinor(pick(GAME.danceCrew)!);
       }
       if (coins >= 30) world.smokeBurst(coins >= 299 ? 30 : 14, coins >= 299 ? 'hall' : 'stage');
       for (const fx of tier.fx) {
@@ -625,8 +824,11 @@ export function useGame() {
         if (fx === 'gold') world.goldRain(coins >= 999 ? 500 : 300);
         if (fx === 'party') world.partyAll(coins >= 999 ? 15000 : 9000);
       }
-      if (s.gifts.shouldThank(id, coins, voice.waitingPriority))
-        voice.say(pick(tier.lines)!(speakableName(name)), true, undefined, false, () => world.look(id, 3500));
+      // quà to (từ 99 xu) cảm ơn ngay; quà nhỏ xếp sau câu chính, không chen ngang cảnh đang diễn
+      if (s.gifts.shouldThank(id, coins, voice.waitingPriority)) {
+        if (coins >= 99) voice.say(pick(tier.lines)!(speakableName(name)), true);
+        else voice.sayMinor(pick(tier.lines)!(speakableName(name)));
+      }
     },
 
     onMember: (e) => {
@@ -641,14 +843,14 @@ export function useGame() {
         setTimeout(() => {
           if (!world.has(e.username)) return;
           world.say(e.username, pick(GAME.passerEmoji)!, 3000);
-          if (n !== 'bạn' && s.passerLimit('all') && voice.waiting < 4)
-            voice.say(pick(GAME.passer)!(n), false, undefined, false, () => world.look(e.username, 4000));
+          if (n !== 'bạn' && !inCeremony() && s.passerLimit('all') && voice.waiting < 4)
+            voice.sayMinor(pick(GAME.passer)!(n));
         }, 7000);
       }
     },
 
     onFollow: (e) => {
-      if (s.follows.first(e.username)) voice.say(GAME.thankFollow(speakableName(safeName(e.nickname, e.username))));
+      if (s.follows.first(e.username) && !inCeremony()) voice.sayMinor(GAME.thankFollow(speakableName(safeName(e.nickname, e.username))));
     },
 
     onLike: (e) => {
@@ -661,7 +863,7 @@ export function useGame() {
         if (mark === 100) {
           world.cannons();
           world.heartsRain(80);
-          voice.say(GAME.likes100, true);
+          voice.sayMinor(GAME.likes100);
         } else if (mark === 300) {
           world.heartsRain(120);
           world.roseRain(200);
@@ -698,6 +900,7 @@ export function useGame() {
       if (c.action === 'custom' && c.text === 'event') runEvent();
       if (c.action === 'custom' && c.text === 'car') world.weddingCar();
       if (c.action === 'custom' && c.text === 'dj') startDj();
+      if (c.action === 'custom' && c.text === 'song') startSong();
       if (c.action === 'custom' && c.text === 'hire') s.lastHire = 0;
       if (c.action === 'custom' && c.text === 'roses') world.roseRain(300);
       if (!IS_STAGE) return; // chỉ trang stage làm theo lệnh có tiếng, tránh 2 giọng
@@ -731,18 +934,33 @@ export function useGame() {
   const chatterLine = (): string | null => {
     const C = GAME.chatter;
     const w = s.w;
-    const opts: (() => string | null)[] = [
-      () => pick(C.howTo) ?? null,
-      () => pick(C.howTo) ?? null,
-      () => (world.count >= 3 && !s.married ? C.crowd(world.count) : null),
-      () => (s.married ? C.married(s.married) : null),
-      () => (w?.phase === 'after' ? C.onStage(spoken(w.ids.groom), spoken(w.ids.bride)) : null),
-      () => pick(C.questions) ?? null,
-      () => pick(C.zo) ?? null,
+    const quiet = Date.now() - s.lastActivity > 30_000;
+    const castHere = GAME.cast.filter((_, i) => world.has(`cast-${i}`)).map((c) => c.name).sort(() => Math.random() - 0.5);
+    // [loại, trọng số, câu]; không lặp cùng loại hai lần liền. Chủ yếu nói về tình yêu đôi lứa, cô dâu chú rể, se duyên
+    // (bỏ kiểu tấu hài hai MC; phòng vắng thì thêm lời chúc hai họ)
+    const opts: [string, number, () => string | null][] = [
+      ['love', 5, () => pick(C.love) ?? null],
+      // chỉ trong 4 phút sau đám cưới
+      ['recentCouple', 2, () => (w?.phase === 'after' && Date.now() - s.lastWeddingAt < 4 * 60_000 ? pick(C.recentCouple)!(spoken(w.ids.groom), spoken(w.ids.bride)) : null)],
+      ['married', 1, () => (s.married ? pick(C.married)!(s.married) : null)],
+      ['duyenTalk', 2, () => pick(C.duyenTalk) ?? null],
+      ['praise', quiet ? 3 : 1, () => pick(C.praise) ?? null],
+      ['custom', 2, () => pick(C.custom) ?? null],
+      ['howTo', 1, () => pick(C.howTo) ?? null],
+      ['questions', 1, () => pick(C.questions) ?? null],
+      ['castSkit', 1, () => (castHere.length >= 2 ? pick(C.castSkit)!(castHere[0], castHere[1]) : null)],
+      ['crowd', 1, () => (world.count >= 3 && !s.married ? pick(C.crowd)!(world.count) : null)],
     ];
-    for (let i = 0; i < 6; i++) {
-      const line = opts[Math.floor(Math.random() * opts.length)]();
-      if (line) return line;
+    const total = opts.reduce((n, o) => n + o[1], 0);
+    for (let i = 0; i < 8; i++) {
+      let r = Math.random() * total;
+      const o = opts.find((x) => (r -= x[1]) < 0) ?? opts[0];
+      if (o[0] === s.lastChatter) continue;
+      const line = o[2]();
+      if (line) {
+        s.lastChatter = o[0];
+        return line;
+      }
     }
     return null;
   };
@@ -758,29 +976,58 @@ export function useGame() {
         const left = Math.ceil((w.until - Date.now()) / 1000);
         if (left <= 0) return endProposal('timeout');
         const b = w.ids[other(w.stealRole)] ? spoken(w.ids[other(w.stealRole)]) : speakableName(w.targetName);
+        // người được hỏi vắng mặt (sau 10 giây) hoặc im lặng (sau 25 giây): mở cho cả sảnh, ai gõ đồng ý trước là cưới
+        const waited = GAME.answerMs / 1000 - left;
+        if (!w.open && waited >= (w.ids[other(w.stealRole)] ? 25 : 10)) {
+          w.open = true;
+          voice.say(GAME.openCall(spoken(w.ids[w.stealRole]), b), true, undefined, false, undefined, () => s.w === w && w.phase === 'proposal' && !!w.open);
+        }
         if ((left <= 35 && w.nudged === 0) || (left <= 15 && w.nudged === 1)) {
           w.nudged++;
           if (s.nudgeLimit('all')) voice.say(pick(GAME.nudge)!(b, left), true, undefined, false, undefined, () => s.w === w && w.phase === 'proposal');
         }
       }, 1000),
     );
-    // Dàn khách quen vào tiệc (nhân vật của chương trình, tên vui, không phải người xem)
-    GAME.cast.forEach((name, i) =>
+    // PK: vẽ lại bảng điểm tối đa ~3 lần/giây (không vẽ theo từng comment, để chịu được hàng nghìn comment), hết giờ thì chốt
+    timers.push(
+      setInterval(() => {
+        const p = s.pk;
+        if (!p) return;
+        const left = p.until - Date.now();
+        if (left <= 0) return endPk();
+        if (!p.saidMid && left < GAME.pk.ms / 2) {
+          p.saidMid = true;
+          voice.say(GAME.pk.mid(p.atk, p.def), true);
+        }
+        if (p.dirty) {
+          p.dirty = false;
+          pkView();
+        }
+      }, 350),
+    );
+    // Giai đoạn trước xong hẳn (nhảy, hát, Nguyệt Lão, bình chọn) mới cho đám đang chờ lên; hết đám mới tới nhảy để dành
+    timers.push(
+      setInterval(() => {
+        if (weddingBusy() || showBusy() || Date.now() - s.lastWeddingAt < 4000 || voice.waiting > 1) return;
+        if (s.queue.length || s.djPending) nextInQueue();
+      }, 2000),
+    );
+    // Dàn khách quen vào tiệc (nhân vật của chương trình, không phải người xem)
+    GAME.cast.forEach(({ name, fem }, i) =>
       setTimeout(() => {
         names.current.set(`cast-${i}`, name);
-        // giới tính theo cách gọi: Cô / Chị / Bà / Con là nữ
-        world.ensure(`cast-${i}`, name, '', false, /^(Cô|Chị|Bà|Con) /.test(name));
+        world.ensure(`cast-${i}`, name, '', false, fem);
       }, 1500 + i * 900),
     );
     // Phòng vắng: dàn khách quen tự cầu hôn nhau, đồng ý / từ chối ngẫu nhiên như thật
     timers.push(
       setInterval(() => {
         const now = Date.now();
-        if ((s.w && s.w.phase !== 'after') || s.duyen || now - s.lastActivity < GAME.autoAfterMs || now - s.lastAuto < GAME.autoEveryMs || voice.waiting > 0) return;
+        if (weddingBusy() || showBusy() || s.queue.length || now - s.lastActivity < GAME.autoAfterMs || now - s.lastAuto < GAME.autoEveryMs || voice.waiting > 0) return;
         const cast = GAME.cast.map((_, i) => `cast-${i}`).filter((id) => world.has(id)).sort(() => Math.random() - 0.5);
         if (cast.length < 2) return;
         s.lastAuto = now;
-        const fem = (id: string) => /^(Cô|Chị|Bà|Con) /.test(shown(id));
+        const fem = (id: string) => GAME.cast[Number(id.slice(5))]?.fem ?? false;
         const a = cast[0];
         // ưu tiên ghép 1 nam 1 nữ, vai theo giới tính người hỏi
         const b = cast.slice(1).find((x) => fem(x) !== fem(a)) ?? cast[1];
@@ -803,7 +1050,7 @@ export function useGame() {
     // Tuyển ngẫu nhiên 1 người xem (không phải dàn khách quen) làm nhân viên bưng mâm hoặc vũ công
     timers.push(
       setInterval(() => {
-        if (Date.now() - s.lastHire < GAME.hireEveryMs || voice.waiting > 2) return;
+        if (Date.now() - s.lastHire < GAME.hireEveryMs || voice.waiting > 2 || inCeremony()) return;
         const busy = new Set([s.w?.ids.groom, s.w?.ids.bride]);
         const pool = world.ids().filter((id) => !id.startsWith('cast-') && !id.startsWith('ev-') && !busy.has(id));
         if (!pool.length) return;
@@ -811,7 +1058,7 @@ export function useGame() {
         const kind = Math.random() < 0.5 ? 'waiter' : 'dancer';
         if (!world.hire(id, kind, GAME.hireMs)) return;
         s.lastHire = Date.now();
-        voice.say(pick(kind === 'waiter' ? GAME.hireWaiter : GAME.hireDancer)!(spoken(id)), false, undefined, false, () => world.look(id, 5000));
+        voice.sayMinor(pick(kind === 'waiter' ? GAME.hireWaiter : GAME.hireDancer)!(spoken(id)));
       }, 5000),
     );
     // Quẩy DJ định kỳ lúc không có đám
@@ -844,7 +1091,7 @@ export function useGame() {
     timers.push(
       setInterval(() => {
         const ph = s.w?.phase;
-        if (s.duyen || (ph && ph !== 'after') || Date.now() - s.lastPair < GAME.pairEveryMs || voice.waiting > 1) return;
+        if (s.duyen || world.djOn || world.singing || (ph && ph !== 'after') || Date.now() - s.lastPair < GAME.pairEveryMs || voice.waiting > 1) return;
         const p = world.pickPair();
         if (!p) return;
         s.lastPair = Date.now() + Math.random() * 20_000; // lệch nhịp cho tự nhiên
@@ -865,16 +1112,19 @@ export function useGame() {
     if (IS_STAGE) {
       timers.push(
         setInterval(() => {
+          if (inCeremony()) return;
           const n = s.recent.latest(3, GAME.shareReminderEveryMs);
-          voice.say(n.length ? GAME.shareWithNames(joinNames(n)) : pick(GAME.shareLines)!);
+          voice.sayMinor(n.length ? GAME.shareWithNames(joinNames(n)) : pick(GAME.shareLines)!);
         }, GAME.shareReminderEveryMs),
       );
       timers.push(
         setInterval(() => {
           const ph = s.w?.phase;
-          if (ph === 'vows' || ph === 'walk' || world.djOn || voice.quietForMs() < GAME.chatterQuietMs) return;
+          if (ph === 'vows' || ph === 'walk' || world.djOn || voice.quietForMs() < s.chatterGap) return;
           const line = chatterLine();
           if (line) voice.say(line);
+          // nghỉ giữa các câu như người thật: 5–9 giây, phòng vắng thì 8–14 giây (đỡ nói dồn, đỡ nghe lặp)
+          s.chatterGap = Date.now() - s.lastActivity > 30_000 ? 8000 + Math.random() * 6000 : 5000 + Math.random() * 4000;
         }, 2000),
       );
     }
@@ -887,7 +1137,7 @@ export function useGame() {
     return () => clearTimeout(t);
   }, [lastGift]);
 
-  return { status, channelName, lastGift, likeProgress, likeNext, guestCount, view, queueLen, married, duyen, nguyen, stageCount, vote, dark };
+  return { status, channelName, lastGift, likeProgress, likeNext, guestCount, view, queueLen, married, duyen, nguyen, stageCount, vote, dark, pk, parents };
 }
 
 export type GameState = ReturnType<typeof useGame>;

@@ -1,6 +1,6 @@
 // Chạy: npx tsx src/game/rules.check.ts
 import assert from 'node:assert/strict';
-import { parseCommand, matchName, pickRole } from './rules';
+import { parseCommand, matchName, nameScore, pickRole } from './rules';
 
 assert.deepEqual(parseCommand('cưới vợ @Lan Anh'), { type: 'propose', role: 'groom', target: 'Lan Anh' });
 assert.deepEqual(parseCommand('Cưới chồng @Tuấn 🌸'), { type: 'propose', role: 'bride', target: 'Tuấn 🌸' });
@@ -25,15 +25,20 @@ assert.deepEqual(parseCommand('dzô dzô'), { type: 'zo' });
 assert.equal(parseCommand('không biết nói gì luôn á mọi người ơi'), null);
 assert.deepEqual(parseCommand('không cưới đâu'), { type: 'no' });
 
-assert.ok(matchName('Lan Anh', 'Lan Anh 🌸', 'lananh2k'));
-assert.ok(matchName('lan anh', 'Lan Anh 🌸', 'x'));
-assert.ok(matchName('lananh2k', 'Bé Na', 'lananh2k'));
-assert.ok(!matchName('Lan', 'Lan Anh', 'x')); // @lan là Lan, không phải Lan Anh
-assert.ok(matchName('Lan', 'Lan', 'x'));
-assert.ok(matchName('Lan Anh nha', 'Lan Anh 🌸', 'x'));
-assert.ok(matchName('lan', 'Lan Anh', 'lan'));
-assert.ok(!matchName('Lan', 'Ngọc Lan', 'x'));
-assert.ok(!matchName('a', 'Anh', 'x'));
+// gõ tên hiển thị hoặc username đều được (bỏ dấu, emoji, chữ kiểu lạ)
+assert.equal(nameScore('lananh2k', 'Bé Na', 'lananh2k'), 3);
+assert.equal(nameScore('Lan Anh', 'Lan Anh 🌸', 'x'), 3);
+assert.equal(nameScore('Lan Anh nha', 'Lan Anh 🌸', 'x'), 3);
+assert.equal(nameScore('trang', 'Trang Nguyễn 2k', 'x'), 2); // đầu tên: chỉ nhận khi sảnh có 1 người khớp
+assert.equal(nameScore('nguyen', 'Trang Nguyễn 2k', 'x'), 1);
+assert.equal(nameScore('an', 'Lan Anh', 'x'), 0); // dưới 3 ký tự không đoán
+const vu = 'Vũ🌈🌈';
+for (const c of ['cưới chồng @vũ', 'cưới chồng @ vũ', 'cưới chồng @Vũ🌈🌈', 'cưới chồng @vu', 'cưới chồng @vu.2k5', 'cưới vợ @ Vũ nha']) {
+  const p = parseCommand(c);
+  assert.ok(p?.type === 'propose' && nameScore(p.target, vu, 'vu.2k5') === 3, c);
+}
+assert.equal(nameScore('vũ', '𝑽𝒖̃ 🌈', 'x'), 3);
+assert.ok(matchName('trang', 'Trang Nguyễn', 'x'));
 
 assert.equal(pickRole('abc'), pickRole('abc'));
 

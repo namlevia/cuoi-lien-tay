@@ -15,6 +15,7 @@ interface Pet {
   rest: number; // ngồi nghỉ thêm bao lâu
   chase: Pet | null;
   phase: number;
+  danceSpot?: THREE.Vector3 | null; // chỗ nhảy lúc DJ
 }
 
 const DOGS = ['#c68642', '#f2d3a0', '#3b2a20', '#ffffff'];
@@ -78,8 +79,51 @@ export class Pets {
     }
   }
 
-  update(dt: number, t: number) {
-    for (const p of this.list) {
+  update(dt: number, t: number, dance = false) {
+    this.list.forEach((p, i) => {
+      if (dance) return this.dance(p, i, dt, t);
+      if (p.danceSpot) {
+        // hết nhạc: về chạy lăng xăng như cũ
+        p.danceSpot = null;
+        p.chase = null;
+        p.rest = 0;
+        p.root.rotation.z = 0;
+        p.target = randSpot();
+      }
+      this.wander(p, dt, t);
+    });
+  }
+
+  /** nhảy DJ: chạy ra sàn trước sân khấu rồi nhún nhảy, xoay vòng, đứng 2 chân */
+  private dance(p: Pet, i: number, dt: number, t: number) {
+    const r = p.root.position;
+    if (!p.danceSpot) p.danceSpot = new THREE.Vector3(-3.5 + (i % 4) * 2.3 + (Math.random() - 0.5), 0, -15.6 + Math.floor(i / 4) * 1.4);
+    const dx = p.danceSpot.x - r.x;
+    const dz = p.danceSpot.z - r.z;
+    const dist = Math.hypot(dx, dz);
+    const ph = p.phase + t;
+    if (dist > 0.1) {
+      const step = Math.min(dist, 3 * dt);
+      r.x += (dx / dist) * step;
+      r.z += (dz / dist) * step;
+      p.root.rotation.y = Math.atan2(dx, dz);
+      r.y = Math.abs(Math.sin(ph * 14)) * 0.04;
+      p.legs.forEach((l, k) => (l.rotation.x = Math.sin(ph * 14 + (k % 2 ? Math.PI : 0)) * 0.6));
+      return;
+    }
+    // nhún theo nhịp, chó xoay vòng, mèo lắc lư đứng 2 chân
+    r.y = Math.abs(Math.sin(t * Math.PI * 2 + i)) * 0.28;
+    if (p.kind === 'dog') p.root.rotation.y += dt * (i % 2 ? 4 : -4);
+    else {
+      p.root.rotation.y = Math.sin(t * 2 + i) * 0.8;
+      p.root.rotation.z = Math.sin(t * Math.PI * 2) * 0.25;
+    }
+    p.legs.forEach((l, k) => (l.rotation.x = Math.sin(t * 12 + k) * 0.9));
+    p.tail.rotation.z = Math.sin(t * 16) * 0.8;
+  }
+
+  private wander(p: Pet, dt: number, t: number) {
+    {
       const r = p.root.position;
       if (p.chase) p.target.copy(p.chase.root.position);
       const dx = p.target.x - r.x;
