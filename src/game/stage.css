@@ -482,4 +482,10 @@
 }
 .dc-rules b {
   color: #c2415d;
+}.dc-side-col {
+  transition: opacity 0.5s;
+}
+.dc-side-col.off {
+  opacity: 0;
+  pointer-events: none;
 }
