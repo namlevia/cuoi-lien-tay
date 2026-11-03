@@ -180,6 +180,29 @@ export const GAME = {
   ],
   shareWithNames: (names: string) => `M: ${names} ơi! Chia sẻ live cho bạn bè vào ăn cưới nha! | F: Đông vui mới có người để cưới!`,
 
+  // ---------- Mai mối: camera zoom vào 1 bàn, MC ép 2 bạn lên cưới (cổ vũ thật mạnh) ----------
+  pairEveryMs: 50_000,
+  pair: [
+    (a: N, b: N) => `M: ^Camera! Zoom vào bàn này cho MC! | F: Ối giời ơi, ${a} với ${b} ngồi sát rạt nãy giờ! | M: ^Lên! Lên! Lên! | F: Váy cưới MC ủi sẵn rồi, chỉ thiếu người mặc thôi!`,
+    (a: N, b: N) => `F: ^Khoan! Dừng nhạc! | F: Bàn này có biến! | M: ${a} nhìn ${b} bằng ánh mắt tình bể bình luôn! | F: ^Cưới! Cưới! Cưới! | M: Cả hội trường hô theo MC nào!`,
+    (a: N, b: N) => `M: ${a} ơi! ${b} ơi! | F: ^Đứng dậy! | M: Một người mặc vest, một người mặc váy cưới. Ai mặc gì tự thỏa thuận! | F: ^Lên lễ đường liền tay!`,
+    (a: N, b: N) => `F: Thưa bà con, MC vừa phát hiện một cặp trời sinh! | M: ^${a} và ${b}! | F: Ngồi chung bàn, ăn chung đĩa, tranh nhau cái đùi gà! | M: ^Chưa cưới là phí của trời!`,
+    (a: N, b: N) => `M: ^Á à! | M: ${b} vừa gắp miếng gà cho ${a} kìa! | F: Gắp gà là thương rồi đó! | M: ^Cưới! Cưới ngay! | F: Gõ cưới, a còng, tên người ta. Dễ ợt!`,
+    (a: N, b: N) => `F: ${a} ơi, mặc váy cưới vào chắc đẹp lắm nha! | M: Còn ${b} mặc vest thì đẹp trai hết phần thiên hạ! | F: ^Còn chờ gì nữa! | M: ^Cưới! Cưới! Cưới!`,
+    (a: N, b: N) => `M: Bà con ơi, cho MC xin một tràng cưới đi! | F: ^Cưới đi! Cưới đi! Cưới đi! | M: ${a} với ${b} nghe chưa? Cả làng ủng hộ rồi đó! | F: Không cưới là MC khóc tại chỗ!`,
+    (a: N, b: N) => `F: ^Tin nóng! | F: ${a} vừa liếc ${b} ba lần trong một phút! | M: Theo khoa học, liếc ba lần là yêu! Liếc bốn lần là cưới! | F: ^Cưới liền tay!`,
+    (a: N, b: N) => `M: ${a} ơi, nhẫn nè, MC cho mượn! | F: ${b} ơi, váy cưới nè, MC cho thuê giá rẻ! | M: ^Lên! Lên! Lên! | F: Gõ cưới, a còng, tên người ta là xong!`,
+    (a: N, b: N) => `F: Trời ơi, bàn này ai cũng có đôi mà ${a} với ${b} vẫn lẻ bóng! | M: ^Ghép luôn! | F: Ông tơ bà nguyệt đứng sau lưng hai bạn nãy giờ rồi đó! | M: ^Cưới!`,
+    (a: N, b: N) => `M: ^Hội trường ơi! Hô to tên ${a}! | F: ^Và ${b}! | M: Hai bạn lên đây mặc đồ cưới cho MC coi! | F: Ngại thì MC xuống tận bàn đẩy lên!`,
+    (a: N, b: N) => `F: MC đọc được suy nghĩ của ${a} nè. | F: Đang nghĩ: ước gì ${b} hỏi cưới mình! | M: ^Trời ơi lộ rồi! | M: ${b} ơi, người ta chờ nãy giờ, gõ cưới đi!`,
+  ],
+  pairBubble: ['🙈 Ngại quá à', '😏 Cũng được...', '💓 Tim đập nhanh rồi', '🤭 MC ác ghê', '😳 Ai? Tui hả?'],
+  pairPush: [
+    (a: N, b: N) => `M: ${a} ơi, vẫn chưa gõ hả? | F: ^Gõ đi! Cả hội trường đang chờ! | M: Cưới, a còng, ${b}. Có ba chữ thôi mà!`,
+    (a: N, b: N) => `F: ${b} ơi, hay là bạn hỏi cưới trước luôn đi! | M: ^Thời đại mới! Ai hỏi trước cũng được! | F: ${a} đang ngồi chờ kìa!`,
+    (a: N, b: N) => `M: Hai bạn ${a} với ${b} còn ngại hả? | F: Ngại thì để MC hỏi giùm! | M: ^Cưới không? Cưới không? | F: Im lặng là đồng ý nha!`,
+  ],
+
   // ---------- MC rảnh thì nói ----------
   chatter: {
     howTo: [
@@ -187,7 +210,6 @@ export const GAME = {
       `F: Ai đang thích thầm ai thì nay là cơ hội! | M: Gõ cưới, a còng, tên người đó! | F: Bị từ chối thì MC an ủi bằng một tràng pháo tay!`,
       `M: Thấy người ta sắp cưới mà mình cũng thích? | F: ^Cướp luôn! | M: Tặng ba mươi xu là cướp được dâu, cướp được rể!`,
     ],
-    match: (a: N, b: N) => `M: Ê nhìn kìa! ${a} với ${b} ngồi gần nhau nãy giờ! | F: ^Hợp ghê! | F: ${a} ơi, gõ cưới, a còng, ${b} đi! MC ủng hộ hết mình!`,
     crowd: (n: number) => `M: ${n} khách trong tiệc! | F: ${n} người mà chưa ai dám cưới! | M: ^MC buồn ghê!`,
     married: (k: number) => `M: Hôm nay đã có ${k} cặp về chung một nhà! | F: ^Cặp tiếp theo là ai đây?`,
     onStage: (g: N, b: N) => `F: ${g} với ${b} vẫn đứng vẫy tay trên sân khấu kìa! | M: Ai muốn là đám tiếp theo thì gõ cưới nha!`,

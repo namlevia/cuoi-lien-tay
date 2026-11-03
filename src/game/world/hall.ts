@@ -60,17 +60,17 @@ export function buildHall(scene: THREE.Scene) {
   floor.position.z = -6;
   scene.add(floor);
   put('#b3122e', new THREE.BoxGeometry(AISLE_HALF * 2, 0.02, GATE_Z - STAGE_FRONT + 1), 0, 0.01, (GATE_Z + STAGE_FRONT) / 2);
-  for (const sx of [-1, 1]) put('#e8c26a', new THREE.BoxGeometry(0.08, 0.025, GATE_Z - STAGE_FRONT + 1), sx * AISLE_HALF, 0.012, (GATE_Z + STAGE_FRONT) / 2);
+  for (const sx of [-1, 1]) put('#e6e9ef', new THREE.BoxGeometry(0.08, 0.025, GATE_Z - STAGE_FRONT + 1), sx * AISLE_HALF, 0.012, (GATE_Z + STAGE_FRONT) / 2);
 
-  // tường đỏ rượu vang thẫm + cột vàng + nẹp vàng (cho sang, không 1 tông hồng)
-  put('#4a0f26', new THREE.BoxGeometry(30, 9, 0.3), 0, 4.5, -27.5);
+  // tường xanh navy đêm + cột bạc + nẹp bạc (sang, không 1 tông hồng)
+  put('#141c33', new THREE.BoxGeometry(30, 9, 0.3), 0, 4.5, -27.5);
   for (const sx of [-1, 1]) {
-    put('#5a1632', new THREE.BoxGeometry(0.3, 9, 44), sx * 13.5, 4.5, -6);
-    put('#d4a84b', new THREE.BoxGeometry(0.1, 0.12, 44), sx * 13.3, 1.1, -6);
-    put('#d4a84b', new THREE.BoxGeometry(0.1, 0.12, 44), sx * 13.3, 7.6, -6);
-    for (let z = 10; z > -27; z -= 4) put('#c9973c', new THREE.BoxGeometry(0.2, 9, 0.35), sx * 13.3, 4.5, z);
+    put('#1a2442', new THREE.BoxGeometry(0.3, 9, 44), sx * 13.5, 4.5, -6);
+    put('#dfe3ea', new THREE.BoxGeometry(0.1, 0.12, 44), sx * 13.3, 1.1, -6);
+    put('#dfe3ea', new THREE.BoxGeometry(0.1, 0.12, 44), sx * 13.3, 7.6, -6);
+    for (let z = 10; z > -27; z -= 4) put('#c4cad4', new THREE.BoxGeometry(0.2, 9, 0.35), sx * 13.3, 4.5, z);
   }
-  for (const x of [-14, -9.5, 9.5, 14]) put('#c9973c', new THREE.BoxGeometry(0.4, 9, 0.2), x, 4.5, -27.3);
+  for (const x of [-14, -9.5, 9.5, 14]) put('#c4cad4', new THREE.BoxGeometry(0.4, 9, 0.2), x, 4.5, -27.3);
 
   // bàn tròn trắng + 10 ghế trắng + đĩa + bình hoa
   const tableTop = new THREE.CylinderGeometry(1.05, 1.05, 0.05, 28);
@@ -89,12 +89,12 @@ export function buildHall(scene: THREE.Scene) {
   for (const t of TABLES) {
     put('#ffffff', tableTop, t.x, 0.75, t.z);
     put('#fdfbf7', cloth, t.x, 0.38, t.z);
-    put('#d4a84b', vase, t.x, 0.92, t.z);
-    put('#d4a84b', rim, t.x, 0.77, t.z, 0, Math.PI / 2);
+    put('#dfe3ea', vase, t.x, 0.92, t.z);
+    put('#dfe3ea', rim, t.x, 0.77, t.z, 0, Math.PI / 2);
     for (let i = 0; i < 5; i++) {
       const a = (i / 5) * Math.PI * 2 + 0.3;
       put('#5f8f4e', leaf, t.x + Math.sin(a) * 0.17, 1.04, t.z + Math.cos(a) * 0.17);
-      put('#fff1a8', candle, t.x + Math.sin(a) * 0.42, 0.83, t.z + Math.cos(a) * 0.42);
+      put('#fff8e1', candle, t.x + Math.sin(a) * 0.42, 0.83, t.z + Math.cos(a) * 0.42);
     }
     for (let i = 0; i < 7; i++) {
       const a = (i / 7) * Math.PI * 2;
@@ -103,7 +103,7 @@ export function buildHall(scene: THREE.Scene) {
     put('#ff4d6d', bloom, t.x, 1.18, t.z);
     for (let i = 0; i < SEATS_PER_TABLE; i++) {
       const a = (i / SEATS_PER_TABLE) * Math.PI * 2 + 0.31;
-      put('#d4a84b', charger, t.x + Math.sin(a) * 0.78, 0.778, t.z + Math.cos(a) * 0.78);
+      put('#dfe3ea', charger, t.x + Math.sin(a) * 0.78, 0.778, t.z + Math.cos(a) * 0.78);
       put('#f4f1ea', plate, t.x + Math.sin(a) * 0.78, 0.792, t.z + Math.cos(a) * 0.78);
       put('#fff6cc', glass, t.x + Math.sin(a + 0.2) * 0.72, 0.84, t.z + Math.cos(a + 0.2) * 0.72);
     }
@@ -113,24 +113,24 @@ export function buildHall(scene: THREE.Scene) {
     const bx = s.x - Math.sin(s.face) * 0.22;
     const bz = s.z - Math.cos(s.face) * 0.22;
     put('#ffffff', seat, s.x, 0.45, s.z, s.face);
-    put('#d4a84b', back, bx, 0.72, bz, s.face);
+    put('#dfe3ea', back, bx, 0.72, bz, s.face);
     for (const [dx, dz] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]])
-      put('#c9973c', leg, s.x + dx, 0.22, s.z + dz);
+      put('#c4cad4', leg, s.x + dx, 0.22, s.z + dz);
   }
 
-  // sân khấu: mặt trắng, thân đỏ vang, viền vàng, bậc thềm
+  // sân khấu: mặt trắng, thân navy, viền bạc, bậc thềm
   put('#ffffff', new THREE.BoxGeometry(16, 0.08, 7.6), 0, STAGE_Y - 0.04, -23.4);
-  put('#6e1838', new THREE.BoxGeometry(16, STAGE_Y - 0.08, 7.6), 0, (STAGE_Y - 0.08) / 2, -23.4);
-  put('#d4a84b', new THREE.BoxGeometry(16.1, 0.07, 0.1), 0, STAGE_Y - 0.04, STAGE_FRONT + 0.02);
-  put('#d4a84b', new THREE.BoxGeometry(16.1, 0.05, 0.1), 0, 0.06, STAGE_FRONT + 0.02);
+  put('#1f2b4d', new THREE.BoxGeometry(16, STAGE_Y - 0.08, 7.6), 0, (STAGE_Y - 0.08) / 2, -23.4);
+  put('#dfe3ea', new THREE.BoxGeometry(16.1, 0.07, 0.1), 0, STAGE_Y - 0.04, STAGE_FRONT + 0.02);
+  put('#dfe3ea', new THREE.BoxGeometry(16.1, 0.05, 0.1), 0, 0.06, STAGE_FRONT + 0.02);
   put('#ffffff', new THREE.BoxGeometry(3, 0.3, 0.7), 0, 0.15, STAGE_FRONT + 0.35);
-  put('#d4a84b', new THREE.BoxGeometry(3.05, 0.04, 0.05), 0, 0.3, STAGE_FRONT + 0.7);
+  put('#dfe3ea', new THREE.BoxGeometry(3.05, 0.04, 0.05), 0, 0.3, STAGE_FRONT + 0.7);
 
   // cổng hoa trên sân khấu + cổng hoa ở lối vào: vòm + chùm hoa
   const flowers = (cz: number, cy: number, r: number, n: number) => {
     const arch = new THREE.TorusGeometry(r, 0.12, 8, 30, Math.PI);
-    put('#d4a84b', arch, 0, cy, cz);
-    for (const sx of [-1, 1]) put('#d4a84b', new THREE.CylinderGeometry(0.12, 0.14, cy, 8), sx * r, cy / 2, cz);
+    put('#dfe3ea', arch, 0, cy, cz);
+    for (const sx of [-1, 1]) put('#dfe3ea', new THREE.CylinderGeometry(0.12, 0.14, cy, 8), sx * r, cy / 2, cz);
     const ball = new THREE.SphereGeometry(0.2, 8, 6);
     for (let i = 0; i <= n; i++) {
       const a = (i / n) * Math.PI;
@@ -149,7 +149,7 @@ export function buildHall(scene: THREE.Scene) {
   const bunch = new THREE.SphereGeometry(0.26, 8, 6);
   for (let z = GATE_Z - 2; z > STAGE_FRONT + 1; z -= 3.3)
     for (const sx of [-1, 1]) {
-      put('#e8c26a', stand, sx * (AISLE_HALF + 0.3), 0.45, z);
+      put('#e6e9ef', stand, sx * (AISLE_HALF + 0.3), 0.45, z);
       put(z % 2 ? '#ffffff' : '#ffc2d1', bunch, sx * (AISLE_HALF + 0.3), 1.02, z);
       put('#5f8f4e', leaf, sx * (AISLE_HALF + 0.3) + 0.18, 0.95, z + 0.1);
       put('#5f8f4e', leaf, sx * (AISLE_HALF + 0.3) - 0.18, 0.95, z - 0.1);
@@ -169,7 +169,7 @@ export function buildHall(scene: THREE.Scene) {
       pts.push(sx * 13.25, 6.4 - Math.abs(Math.sin(z * 0.8)) * 1.2 + (Math.random() - 0.5) * 0.15, z);
     }
   lights.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  const fairy = new THREE.Points(lights, new THREE.PointsMaterial({ color: '#ffd98a', size: 0.09 }));
+  const fairy = new THREE.Points(lights, new THREE.PointsMaterial({ color: '#fff6e6', size: 0.09 }));
   scene.add(fairy);
 
   // phông chữ "Trăm Năm Hạnh Phúc" + tên cô dâu chú rể
@@ -185,11 +185,11 @@ export function buildHall(scene: THREE.Scene) {
     const c = cv.getContext('2d')!;
     c.clearRect(0, 0, 1024, 512);
     c.textAlign = 'center';
-    c.fillStyle = '#f3c969';
+    c.fillStyle = '#ffffff';
     c.font = '800 120px "Be Vietnam Pro", serif';
     c.fillText('囍', 512, 140);
     c.font = '800 92px "Be Vietnam Pro", sans-serif';
-    c.fillStyle = '#f6d58e';
+    c.fillStyle = '#f2f4f8';
     c.fillText('Trăm Năm Hạnh Phúc', 512, 270);
     if (groom && bride) {
       const cut = (s: string) => (s.length > 14 ? s.slice(0, 13) + '…' : s);

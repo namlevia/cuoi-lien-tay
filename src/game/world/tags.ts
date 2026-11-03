@@ -24,7 +24,7 @@ export function nameTag(name: string, avatar: HTMLImageElement | null, color = '
   const font = '700 44px "Be Vietnam Pro", sans-serif';
   const tFont = '800 32px "Be Vietnam Pro", sans-serif';
   c.font = font;
-  const av = avatar ? 60 : 0;
+  const av = 60; // luôn có ô avatar: chưa có ảnh thì vẽ chữ cái đầu
   const nameW = Math.ceil(c.measureText(short).width) + 40 + av;
   c.font = tFont;
   const titleW = title ? Math.ceil(c.measureText(title.text).width) + 36 : 0;
@@ -37,13 +37,13 @@ export function nameTag(name: string, avatar: HTMLImageElement | null, color = '
     roundRect(c, tx + 2, 2, titleW - 4, 42, 21);
     if (title.gold) {
       const g = c.createLinearGradient(tx, 0, tx + titleW, 0);
-      g.addColorStop(0, '#f6c453');
-      g.addColorStop(1, '#e8913a');
+      g.addColorStop(0, '#ff8fab');
+      g.addColorStop(1, '#e05780');
       c.fillStyle = g;
-    } else c.fillStyle = '#f49ab2';
+    } else c.fillStyle = '#7b88a8';
     c.fill();
     c.font = tFont;
-    c.fillStyle = title.gold ? '#5a2a10' : '#ffffff';
+    c.fillStyle = '#ffffff';
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText(title.text, w / 2, 24);
@@ -52,14 +52,26 @@ export function nameTag(name: string, avatar: HTMLImageElement | null, color = '
   roundRect(c, nx + 2, th + 4, nameW - 4, 60, 30);
   c.fillStyle = 'rgba(255,255,255,0.9)';
   c.fill();
-  if (avatar) {
-    c.save();
-    c.beginPath();
-    c.arc(nx + 34, th + 34, 26, 0, Math.PI * 2);
-    c.clip();
-    c.drawImage(avatar, nx + 8, th + 8, 52, 52);
-    c.restore();
+  c.save();
+  c.beginPath();
+  c.arc(nx + 34, th + 34, 26, 0, Math.PI * 2);
+  c.clip();
+  if (avatar) c.drawImage(avatar, nx + 8, th + 8, 52, 52);
+  else {
+    c.fillStyle = `hsl(${hash(name) % 360} 70% 62%)`;
+    c.fillRect(nx + 8, th + 8, 52, 52);
+    c.fillStyle = '#ffffff';
+    c.font = '800 32px "Be Vietnam Pro", sans-serif';
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText((name.trim()[0] ?? '?').toUpperCase(), nx + 34, th + 36);
   }
+  c.restore();
+  c.beginPath();
+  c.arc(nx + 34, th + 34, 26, 0, Math.PI * 2);
+  c.strokeStyle = '#ffffff';
+  c.lineWidth = 3;
+  c.stroke();
   c.font = font;
   c.fillStyle = color;
   c.textAlign = 'center';

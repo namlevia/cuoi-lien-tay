@@ -62,7 +62,7 @@ class World {
   private last = 0;
   private t = 0;
   private base: CamMode = 'wide';
-  private focus: { id: string | null; mode: CamMode | null; until: number } = { id: null, mode: null, until: 0 };
+  private focus: { id: string | null; mode: CamMode | null; until: number; point?: V3 } = { id: null, mode: null, until: 0 };
   private couple: { groom: string | null; bride: string | null; mode: 'none' | 'gate' | 'walk' | 'stage' } = { groom: null, bride: null, mode: 'none' };
   private partyUntil = 0;
   private fx: Particles;
@@ -78,8 +78,8 @@ class World {
 
   constructor() {
     const s = this.scene;
-    s.background = new THREE.Color('#2a0a18');
-    s.fog = new THREE.Fog('#2a0a18', 34, 70);
+    s.background = new THREE.Color('#0e1428');
+    s.fog = new THREE.Fog('#0e1428', 34, 70);
     s.add(this.hemi);
     const sun = new THREE.DirectionalLight('#ffffff', 1.3);
     sun.position.set(4, 12, 10);
@@ -114,7 +114,7 @@ class World {
     // đèn rọi quét từ trần (cột sáng mờ, cộng sáng)
     const beamGeo = new THREE.CylinderGeometry(0.12, 2.4, 13, 24, 1, true);
     beamGeo.translate(0, -6.5, 0); // gốc ở đỉnh để xoay quanh đèn
-    for (const [x, z, c] of [[-10, 4, '#ffe2a8'], [10, 4, '#ffe2a8'], [-10, -8, '#ffd1e6'], [10, -8, '#ffd1e6'], [-6, -18, '#fff4d6'], [6, -18, '#fff4d6']] as const) {
+    for (const [x, z, c] of [[-10, 4, '#e6ecff'], [10, 4, '#e6ecff'], [-10, -8, '#ffd1e6'], [10, -8, '#ffd1e6'], [-6, -18, '#fff4d6'], [6, -18, '#fff4d6']] as const) {
       const m = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
       m.position.set(x, 11, z);
       this.beams.push(m);
@@ -301,6 +301,38 @@ class World {
     else if (this.guests.has(target)) this.focus = { id: target, mode: null, until: Date.now() + ms };
   }
 
+  /** Zoom vào 1 điểm (1 bàn khách) */
+  lookPoint(p: V3, ms = 6000) {
+    this.focus = { id: null, mode: null, until: Date.now() + ms, point: p.clone() };
+  }
+
+  /** 2 khách thật để MC mai mối: ưu tiên 2 người cùng bàn. Trả kèm chỗ để zoom camera. */
+  pickPair(): { a: string; b: string; at: V3 } | null {
+    const idle = [...this.guests.values()].filter((g) => g.real && !g.role && !g.path.length);
+    if (idle.length < 2) return null;
+    const byTable = new Map<number, Guest[]>();
+    for (const g of idle) if (g.seat) byTable.set(g.seat.table, [...(byTable.get(g.seat.table) ?? []), g]);
+    const tables = [...byTable.entries()].filter(([, l]) => l.length >= 2);
+    let a: Guest, b: Guest, at: V3;
+    if (tables.length) {
+      const [t, list] = tables[Math.floor(Math.random() * tables.length)];
+      [a, b] = list.sort(() => Math.random() - 0.5);
+      at = v(TABLES[t].x, 0, TABLES[t].z);
+    } else {
+      [a, b] = idle.sort(() => Math.random() - 0.5);
+      at = a.c.root.position.clone().add(b.c.root.position).multiplyScalar(0.5);
+    }
+    return { a: a.id, b: b.id, at };
+  }
+
+  /** 2 người được gọi tên đứng dậy hò reo, tim bay */
+  cheerPair(a: string, b: string, ms = 6000) {
+    for (const id of [a, b]) {
+      this.act(id, 'cheer', ms);
+      this.heartsAt(id, 24);
+    }
+  }
+
   setBaseCamera(mode: CamMode) {
     this.base = mode;
   }
@@ -309,14 +341,21 @@ class World {
     const now = Date.now();
     let mode: CamMode | null = this.base;
     let gid: string | null = null;
+    let point: V3 | null = null;
     if (now < this.focus.until) {
       mode = this.focus.mode;
       gid = this.focus.id;
+      point = this.focus.point ?? null;
     }
     const pos = v(0, 0, 0);
     const look = v(0, 0, 0);
     const g = gid ? this.guests.get(gid) : null;
-    if (g) {
+    if (point) {
+      // zoom vào bàn: hơi chếch, xoay nhẹ cho có cảm giác máy quay
+      // cao hơn + nhìn chúc xuống để cả bàn và bảng tên nằm dưới phần chữ phía trên
+      pos.set(point.x * 0.8 + Math.sin(this.t * 0.5) * 0.8, 6, point.z + 6.2);
+      look.set(point.x, 0.2, point.z - 1);
+    } else if (g) {
       const p = g.c.root.position;
       pos.set(p.x * 0.85, p.y + 2.6, p.z + 4.8);
       look.set(p.x, p.y + 0.85, p.z);
@@ -566,7 +605,7 @@ class World {
     for (const sx of [-1, 1]) {
       const at = v(sx * 7, STAGE_Y + 0.3, STAGE_FRONT - 0.6);
       for (let k = 0; k < n; k++) {
-        const c = ['#ffd166', '#ffffff', '#f3c969', '#ff4d6d', '#ffc2d1', '#e9c46a'][k % 6];
+        const c = ['#ffffff', '#dfe3ea', '#ff8fab', '#ff4d6d', '#ffc2d1', '#bde0fe'][k % 6];
         this.fx.add(at, v(-sx * (0.5 + Math.random() * 2.5), 7 + Math.random() * 4, 1 + Math.random() * 4), c, 7, 0.9, 3.2);
       }
     }
@@ -619,11 +658,11 @@ class World {
       }
     }
 
-    // kim tuyến vàng rơi lấp lánh liên tục
+    // kim tuyến bạc rơi lấp lánh liên tục
     this.glitter += dt * 14;
     while (this.glitter >= 1) {
       this.glitter--;
-      this.fx.add(v((Math.random() - 0.5) * 24, 9 + Math.random() * 2, -24 + Math.random() * 34), v(0, -0.55, 0), Math.random() < 0.75 ? '#f3c969' : '#fff6d8', 16, 0.35);
+      this.fx.add(v((Math.random() - 0.5) * 24, 9 + Math.random() * 2, -24 + Math.random() * 34), v(0, -0.55, 0), Math.random() < 0.7 ? '#ffffff' : '#dfe8ff', 16, 0.35);
     }
     // pháo giấy sân khấu mỗi 40 giây cho cảnh luôn có điểm nhấn
     if (this.t - this.lastCannon > 40) this.cannons(90);
@@ -634,7 +673,7 @@ class World {
       const m = b.material as THREE.MeshBasicMaterial;
       m.opacity = party ? 0.14 : 0.07;
       if (party) m.color.setHSL((this.t * 0.3 + i * 0.15) % 1, 0.9, 0.7);
-      else m.color.set(i < 2 ? '#ffe2a8' : i < 4 ? '#ffd1e6' : '#fff4d6');
+      else m.color.set(i < 2 ? '#e6ecff' : i < 4 ? '#ffd1e6' : '#fff4d6');
     });
 
     this.fx.update(dt);
@@ -719,7 +758,7 @@ class World {
     const shown = list.length > TAGS_MAX ? [...list].sort((a, b) => score(b) - score(a)).slice(0, TAGS_MAX) : list;
     shown.sort((a, b) => b.d - a.d); // xa vẽ trước, gần đè lên
     for (const { g, x, y, d } of shown) {
-      const s = Math.max(0.32, Math.min(1.1, 9 / d)) * (g.role ? 1.25 : 1);
+      const s = Math.max(0.5, Math.min(1.1, 10 / d)) * (g.role ? 1.25 : 1);
       if (!g.tag) {
         const title = g.role ? { text: g.role === 'groom' ? '🤵 CHÚ RỂ' : '👰 CÔ DÂU', gold: true } : g.title;
         g.tag = nameTag(g.name, g.avatar, g.role ? '#c9184a' : '#7a2e43', title);

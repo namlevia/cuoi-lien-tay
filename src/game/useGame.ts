@@ -86,6 +86,7 @@ export function useGame() {
     zoLimit: limiter(60_000),
     nudgeLimit: limiter(15_000),
     stealLowLimit: limiter(10_000),
+    lastPair: Date.now() - 30_000,
   }));
 
   const safeName = (nickname: string, username: string) => (containsBanned(nickname) ? username : nickname);
@@ -413,12 +414,6 @@ export function useGame() {
     const opts: (() => string | null)[] = [
       () => pick(C.howTo) ?? null,
       () => pick(C.howTo) ?? null,
-      () => {
-        const [a, b] = world.someGuests(2);
-        if (!a || !b) return null;
-        world.look(a, 5000);
-        return C.match(spoken(a), spoken(b));
-      },
       () => (world.count >= 3 && !s.married ? C.crowd(world.count) : null),
       () => (s.married ? C.married(s.married) : null),
       () => (w?.phase === 'after' ? C.onStage(spoken(w.ids.groom), spoken(w.ids.bride)) : null),
@@ -448,6 +443,28 @@ export function useGame() {
           if (s.nudgeLimit('all')) voice.say(pick(GAME.nudge)!(b, left), true);
         }
       }, 1000),
+    );
+    // Mai mối: thỉnh thoảng zoom vào 1 bàn, MC gọi 2 bạn lên cưới
+    timers.push(
+      setInterval(() => {
+        const ph = s.w?.phase;
+        if ((ph && ph !== 'after') || Date.now() - s.lastPair < GAME.pairEveryMs || voice.waiting > 1) return;
+        const p = world.pickPair();
+        if (!p) return;
+        s.lastPair = Date.now() + Math.random() * 20_000; // lệch nhịp cho tự nhiên
+        const a = spoken(p.a);
+        const b = spoken(p.b);
+        voice.say(pick(GAME.pair)!(a, b), false, undefined, false, () => {
+          world.lookPoint(p.at, 11_000);
+          world.cheerPair(p.a, p.b, 9000);
+          world.say(p.a, '😳 Hả? Tui hả?', 5000);
+          world.say(p.b, pick(GAME.pairBubble)!, 5000);
+        });
+        // 15 giây chưa ai gõ cưới thì MC ép tiếp
+        setTimeout(() => {
+          if (!s.w && world.has(p.a) && world.has(p.b)) voice.say(pick(GAME.pairPush)!(a, b), false, undefined, false, () => world.lookPoint(p.at, 6000));
+        }, 15_000);
+      }, 3000),
     );
     if (IS_STAGE) {
       timers.push(
