@@ -131,6 +131,7 @@ export function useGame() {
   const [pk, setPk] = useState<{ until: number; atk: number; def: number; atkName: string; defName: string } | null>(null);
   const [parents, setParents] = useState<{ groom: string; bride: string } | null>(null);
   const [top, setTop] = useState<TopRow[]>(() => topRows(loadTop()));
+  const [busy, setBusy] = useState(false); // đang có đám cưới / tiết mục (ẩn bảng Luật chơi + Top đại gia)
   const likeBase = useRef<number | null>(null);
   const avatars = useRef(new Map<string, string>());
   const names = useRef(new Map<string, string>()); // id -> tên hiển thị (đã che từ bậy)
@@ -1012,6 +1013,7 @@ export function useGame() {
   useEffect(() => {
     const timers: ReturnType<typeof setInterval>[] = [];
     timers.push(setInterval(() => setGuestCount(world.count), 2000));
+    timers.push(setInterval(() => setBusy(weddingBusy() || showBusy()), 500));
     // hạn trả lời + nhắc
     timers.push(
       setInterval(() => {
@@ -1199,7 +1201,7 @@ export function useGame() {
     return () => clearTimeout(t);
   }, [lastGift]);
 
-  return { status, channelName, lastGift, likeProgress, likeNext, guestCount, view, queueLen, married, duyen, nguyen, stageCount, vote, dark, pk, parents, top };
+  return { status, channelName, lastGift, likeProgress, likeNext, guestCount, view, queueLen, married, duyen, nguyen, stageCount, vote, dark, pk, parents, top, busy };
 }
 
 export type GameState = ReturnType<typeof useGame>;

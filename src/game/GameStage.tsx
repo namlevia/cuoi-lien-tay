@@ -88,8 +88,8 @@ export function GameStage({ game }: { game: GameState }) {
       </div>
 
       {/* Luật chơi + Top đại gia: 1 cột bên phải, luật nằm ngay trên bảng Top, luôn hiện cho người mới vào */}
-      {/* có đám cưới (từ lúc cầu hôn tới khi xe hoa đi) thì ẩn cho khỏi che cô dâu chú rể */}
-      <div className={`dc-side-col ${v && v.phase !== 'after' ? 'off' : ''}`}>
+      {/* chỉ hiện lúc bình thường: có đám cưới, đang nhảy, MC hát, Nguyệt Lão, bình chọn thì ẩn cho khỏi che */}
+      <div className={`dc-side-col ${game.busy ? 'off' : ''}`}>
       <div className="dc-rules">
         <div className="dc-rules-h">📜 Luật chơi</div>
         <ol>
@@ -98,6 +98,9 @@ export function GameStage({ game }: { game: GameState }) {
           </li>
           <li>
             Người được hỏi gõ <b>ĐỒNG Ý</b> là lên lễ đường
+          </li>
+          <li>
+            Gõ <b>QUẨY</b> để lên sân khấu nhảy
           </li>
         </ol>
       </div>
