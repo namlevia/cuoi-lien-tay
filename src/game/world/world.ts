@@ -36,7 +36,8 @@ interface Guest {
   baseLook: Look;
   role: 'groom' | 'bride' | null; // đang là cô dâu / chú rể trên lễ đường
   busy?: boolean;
-  passer?: boolean; // người chỉ lướt vào live, chưa comment: hết chỗ thì nhường ghế cho người comment // đang làm Nguyệt Lão / đi đấm người / ra sàn quẩy: không bị bốc trêu, mai mối
+  passer?: boolean;
+  tagRole?: 'groom' | 'bride' | null; // vai lúc vẽ bảng tên // người chỉ lướt vào live, chưa comment: hết chỗ thì nhường ghế cho người comment // đang làm Nguyệt Lão / đi đấm người / ra sàn quẩy: không bị bốc trêu, mai mối
   onArrive?: () => void;
   move?: Pose; // động tác riêng của thành viên đội nhảy
 }
@@ -87,6 +88,8 @@ class World {
   private danceUntil = 0;
   private crew: Guest[] = [];
   private stageDancers: { g: Guest; home: V3; spot: V3 }[] = [];
+  private car: THREE.Group | null = null;
+  private carPath: V3[] = [];
   private stageDanceOn = false;
   private dj: Chibi;
   private anticAcc = 0;
@@ -779,6 +782,63 @@ class World {
     this.dance(ms);
   }
 
+  /** Xe hoa rước dâu: chạy ngang trước dãy bàn đầu, rồi vòng qua sàn trước sân khấu */
+  weddingCar() {
+    if (!this.car) {
+      const c = new THREE.Group();
+      const m = (g: THREE.BufferGeometry, color: string, x: number, y: number, z: number) => {
+        const me = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color }));
+        me.position.set(x, y, z);
+        c.add(me);
+        return me;
+      };
+      m(new THREE.BoxGeometry(2.8, 0.55, 1.3), '#ffffff', 0, 0.55, 0);
+      m(new THREE.BoxGeometry(1.5, 0.5, 1.15), '#f4f6fb', -0.2, 1.05, 0);
+      m(new THREE.BoxGeometry(1.4, 0.38, 1.18), '#9ec9ff', -0.2, 1.06, 0);
+      const wheel = new THREE.CylinderGeometry(0.28, 0.28, 0.2, 14);
+      for (const [x, z] of [[-0.9, 0.62], [0.9, 0.62], [-0.9, -0.62], [0.9, -0.62]]) m(wheel, '#1a1a1a', x, 0.28, z).rotation.x = Math.PI / 2;
+      const bloom = new THREE.SphereGeometry(0.16, 8, 6);
+      for (let i = 0; i < 9; i++) m(bloom, ['#ff4d6d', '#ffffff', '#ffc2d1'][i % 3], 0.9 + (i % 3) * 0.12, 0.9, -0.35 + Math.floor(i / 3) * 0.35);
+      m(new THREE.BoxGeometry(0.05, 0.05, 1.32), '#ff4d9d', 1.1, 0.83, 0);
+      this.scene.add(c);
+      this.car = c;
+    }
+    this.car.visible = true;
+    this.car.position.set(-16, 0, 8.4);
+    this.carPath = [v(16, 0, 8.4), v(16.5, 0, -15.6), v(-16, 0, -15.6)];
+    this.cannons(80);
+  }
+
+  /** Nhân vật của sự kiện (mẹ chồng, người yêu cũ): đi từ cổng lên sân khấu tới cạnh cặp đôi, làm trò rồi bỏ về */
+  visit(id: string, name: string, look: Partial<Look>, pose: Pose, stayMs: number, say: string) {
+    if (this.guests.has(id)) return;
+    const mid = this.coupleMid() ?? v(0, STAGE_Y, STAGE_Z);
+    const g = this.makeGuest(id, name, true, { ...guestLook(id), ...look });
+    g.busy = true;
+    g.c.root.position.set(0, 0, GATE_Z + 3);
+    this.guests.set(id, g);
+    const to = v(mid.x + 1.1, STAGE_Y, mid.z + 0.5);
+    g.path = [v(0, 0, GATE_Z - 1), v(0, 0, STAGE_FRONT + 0.8), v(0, STAGE_Y, STAGE_FRONT - 0.4), to];
+    g.speed = 4.5;
+    g.face = -Math.PI / 2;
+    g.onArrive = () => {
+      g.action = { pose, until: Date.now() + stayMs };
+      this.say(id, say, stayMs);
+      setTimeout(() => {
+        g.path = [v(0, STAGE_Y, STAGE_FRONT - 0.4), v(0, 0, STAGE_FRONT + 0.8), v(0, 0, GATE_Z + 4)];
+        g.onArrive = () => this.remove(id);
+      }, stayMs);
+    };
+    this.look(id, 5000);
+  }
+
+  remove(id: string) {
+    const g = this.guests.get(id);
+    if (!g) return;
+    this.removeGuest(g);
+    this.guests.delete(id);
+  }
+
   /** đội nhảy chạy ra trước sân khấu nhảy đều trong `ms` rồi về chỗ */
   dance(ms = 8000) {
     const fresh = Date.now() > this.danceUntil;
@@ -986,6 +1046,22 @@ class World {
     this.stepStaff(now);
     for (const g of [...this.waiters, ...this.crew, ...this.dancers.map((d) => d.g), ...this.stageDancers.map((d) => d.g)]) this.stepGuest(g, dt, now, false);
     this.pets.update(dt, this.t);
+    // xe hoa chạy theo đường, kéo theo tim và kim tuyến
+    if (this.car?.visible) {
+      const to = this.carPath[0];
+      if (!to) this.car.visible = false;
+      else {
+        const p = this.car.position;
+        const d = Math.hypot(to.x - p.x, to.z - p.z);
+        if (d < 0.2) this.carPath.shift();
+        else {
+          p.x += ((to.x - p.x) / d) * Math.min(d, 6 * dt);
+          p.z += ((to.z - p.z) / d) * Math.min(d, 6 * dt);
+          this.car.rotation.y = Math.atan2(to.x - p.x, to.z - p.z) - Math.PI / 2;
+          if (Math.random() < dt * 20) this.hearts.add(p.clone().add(v(0, 1.4, 0)), v(0, 1, 0), Math.random() < 0.5 ? '#ff4d6d' : '#ffffff', 1.6);
+        }
+      }
+    }
     this.dj.pose = 'dj';
     this.dj.update(this.t, false);
     this.hall.ledMat.color.setHSL((this.t * 0.15) % 1, 0.9, 0.62);
@@ -1171,7 +1247,9 @@ class World {
     shown.sort((a, b) => b.d - a.d); // xa vẽ trước, gần đè lên
     for (const { g, x, y, d } of shown) {
       const s = Math.max(0.5, Math.min(1.1, 10 / d)) * (g.role ? 1.25 : 1);
+      if (g.tag && g.tagRole !== g.role) g.tag = null; // đổi vai (bị cướp, từ chối, xuống sân khấu) thì vẽ lại bảng tên
       if (!g.tag) {
+        g.tagRole = g.role;
         const title = g.role ? { text: g.role === 'groom' ? '🤵 CHÚ RỂ' : '👰 CÔ DÂU', gold: true } : g.title;
         g.tag = nameTag(g.name, g.avatar, g.role ? '#c9184a' : '#7a2e43', title);
       }

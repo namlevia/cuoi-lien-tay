@@ -4,7 +4,7 @@ import type { GiftEvent, LiveStatus } from '../live/types';
 import { voice, speakableName } from '../live/voice';
 import { containsBanned, maskBanned } from '../live/bannedWords';
 import { NameBatcher } from '../live/scoreboard';
-import { GiftThanker, OncePerPerson, RecentPeople } from '../live/chatter';
+import { GiftThanker, OncePerPerson, RecentPeople, plain } from '../live/chatter';
 import { NGUYEN, type Nguyen } from './seDuyen';
 import { IS_STAGE } from '../live/page';
 import { GAME } from './config';
@@ -77,6 +77,9 @@ export function useGame() {
   const [duyen, setDuyen] = useState<{ until: number; count: number } | null>(null);
   const [nguyen, setNguyen] = useState<Nguyen | null>(null);
   const [stageCount, setStageCount] = useState(0);
+  const [likeNext, setLikeNext] = useState(GAME.likeMilestones[0]);
+  const [vote, setVote] = useState<{ until: number; yes: number; no: number } | null>(null);
+  const [dark, setDark] = useState(false);
   const likeBase = useRef<number | null>(null);
   const avatars = useRef(new Map<string, string>());
   const names = useRef(new Map<string, string>()); // id -> tên hiển thị (đã che từ bậy)
@@ -104,8 +107,13 @@ export function useGame() {
     duyen: null as null | { ids: Set<string>; until: number; said: number; maker: string | null },
     fightLimit: limiter(25_000),
     passerLimit: limiter(15_000),
-    lastActivity: Date.now(),
-    lastAuto: Date.now() - 30_000,
+    // màn mở đầu: ~12 giây sau khi mở trang đã có đám cưới dở dang của dàn khách quen
+    lastActivity: Date.now() - GAME.autoAfterMs,
+    lastAuto: Date.now() - GAME.autoEveryMs + 12_000,
+    likeCycle: null as number | null, // tổng tim lúc bắt đầu vòng mốc (100/300/1000)
+    likeStep: 0,
+    vote: null as null | { until: number; yes: number; no: number; voted: Set<string>; g: string; b: string },
+    nextEventAt: Date.now() + GAME.eventEveryMs[0],
     actLimit: limiter(6_000),
     crewLimit: limiter(45_000),
     lastDuyen: Date.now() - GAME.duyen.everyMs + 90_000, // lần đầu sau ~1,5 phút
@@ -265,7 +273,76 @@ export function useGame() {
     world.look('wide', 1);
     setTimeout(() => s.w?.phase === 'after' && world.setBaseCamera('wide'), 15_000);
     sync();
-    setTimeout(nextInQueue, 5000);
+    if (groom && bride) setTimeout(() => startVote(groom, bride), 2500);
+    setTimeout(nextInQueue, GAME.voteMs + 8000);
+  };
+
+  // ---------- Bình chọn đẹp đôi ----------
+  const startVote = (g: string, b: string) => {
+    if (s.vote) return;
+    const until = Date.now() + GAME.voteMs;
+    s.vote = { until, yes: 0, no: 0, voted: new Set(), g, b };
+    setVote({ until, yes: 0, no: 0 });
+    voice.say(pick(GAME.voteAsk)!(spoken(g), spoken(b)), true);
+    setTimeout(() => {
+      const v = s.vote;
+      s.vote = null;
+      setVote(null);
+      if (!v) return;
+      const total = v.yes + v.no;
+      if (!total) return void voice.say(GAME.voteNone);
+      const p = Math.round((v.yes / total) * 100);
+      voice.say(p >= 70 ? GAME.voteHigh(p) : p >= 40 ? GAME.voteMid(p) : GAME.voteLow(p), true);
+      if (p >= 70) {
+        world.fireworks(4);
+        world.heartsRain(80);
+      }
+    }, GAME.voteMs);
+  };
+
+  // ---------- Sự kiện bất ngờ ----------
+  const runEvent = () => {
+    const w = s.w;
+    const onStage = w?.phase === 'after' && w.ids.groom && w.ids.bride;
+    const kinds = onStage ? ['blackout', 'mom', 'ex', 'envelope'] : ['blackout', 'envelope'];
+    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+    const E = GAME.ev;
+    if (kind === 'envelope') {
+      voice.say(E.envelope, true, undefined, false, () => {
+        world.goldRain(400);
+        world.confetti(200);
+        world.cannons();
+      });
+    } else if (kind === 'blackout') {
+      voice.say(E.blackoutStart, true, undefined, false, () => {
+        setDark(true);
+        setTimeout(() => {
+          const cur = s.w;
+          const bride = cur?.phase === 'after' ? cur.ids.bride : null;
+          const pool = world.ids().filter((id) => id !== cur?.ids.groom && id !== bride && !id.startsWith('ev-'));
+          if (cur && bride && pool.length) {
+            const nb = pool[Math.floor(Math.random() * pool.length)];
+            world.steal(bride, nb);
+            cur.ids.bride = nb;
+            world.setNames(shown(cur.ids.groom!), shown(nb));
+            sync();
+            setTimeout(() => {
+              setDark(false);
+              voice.say(E.blackoutSwap(spoken(bride), spoken(nb)), true, undefined, false, () => world.look('stage', 6000));
+            }, 1200);
+          } else {
+            setDark(false);
+            voice.say(E.blackoutNoCouple(1 + Math.floor(Math.random() * 20)), true);
+          }
+        }, 2800);
+      });
+    } else if (kind === 'mom' && w) {
+      world.visit('ev-mom', 'Mẹ Chồng', { age: 'old', body: 'aodaiF', main: '#5b3a29', hair: '#d9d9d9', longHair: false, hat: 'bun' }, 'poke', 7000, '🧽 Rửa bát đi con!');
+      voice.say(E.mom(spoken(w.ids.bride)), true);
+    } else if (kind === 'ex' && w) {
+      world.visit('ev-ex', 'Người Yêu Cũ', { body: 'shirt', main: '#2b2b2b', hair: '#141010', longHair: Math.random() < 0.5, hat: 'none' }, 'cry', 7000, '😭 Sao anh nỡ cưới người ta!');
+      voice.say(E.ex(spoken(w.ids.groom)), true);
+    }
   };
 
   // ---------- Nguyệt Lão se duyên ----------
@@ -407,6 +484,20 @@ export function useGame() {
         sync();
       }
 
+      // đang bình chọn đẹp đôi: "1"/"hợp" hoặc "2"/"không hợp", mỗi người 1 phiếu
+      if (s.vote && !s.vote.voted.has(id)) {
+        const t = plain(e.comment).trim();
+        const yes = t === '1' || t === 'hop' || t === 'hop qua';
+        const no = t === '2' || t === 'khong hop';
+        if (yes || no) {
+          s.vote.voted.add(id);
+          if (yes) s.vote.yes++;
+          else s.vote.no++;
+          setVote({ until: s.vote.until, yes: s.vote.yes, no: s.vote.no });
+          world.say(id, yes ? '💘 Hợp!' : '💔 Không hợp', 2500);
+          return;
+        }
+      }
       const cmd = parseCommand(e.comment);
       if (cmd?.type === 'propose') {
         if (w && (w.ids.groom === id || w.ids.bride === id) && w.phase !== 'after') return;
@@ -528,14 +619,35 @@ export function useGame() {
     },
 
     onLike: (e) => {
-      if (likeBase.current === null) likeBase.current = e.totalLikes - e.likeCount;
-      if (e.totalLikes - likeBase.current >= GAME.likesPerBoost) {
-        likeBase.current += GAME.likesPerBoost;
-        world.partyAll(10000);
-        world.heartsRain(120);
-        voice.say(GAME.boostLine, true);
+      // mốc tim theo vòng: 100 pháo giấy, 300 cả sảnh quẩy, 1000 xe hoa; qua 1000 thì bắt đầu vòng mới
+      if (s.likeCycle === null) s.likeCycle = e.totalLikes - e.likeCount;
+      const M = GAME.likeMilestones;
+      let inCycle = e.totalLikes - s.likeCycle;
+      while (inCycle >= M[s.likeStep]) {
+        const mark = M[s.likeStep];
+        if (mark === 100) {
+          world.cannons();
+          world.heartsRain(80);
+          voice.say(GAME.likes100, true);
+        } else if (mark === 300) {
+          world.partyAll(10000);
+          world.heartsRain(120);
+          voice.say(GAME.boostLine, true);
+        } else {
+          world.weddingCar();
+          world.fireworks(8);
+          world.partyAll(12000);
+          voice.say(GAME.likes1000, true);
+        }
+        s.likeStep++;
+        if (s.likeStep >= M.length) {
+          s.likeStep = 0;
+          s.likeCycle += M[M.length - 1];
+          inCycle = e.totalLikes - s.likeCycle;
+        }
       }
-      setLikeProgress(Math.max(0, e.totalLikes - likeBase.current));
+      setLikeProgress(Math.max(0, inCycle));
+      setLikeNext(M[s.likeStep]);
     },
 
     onControl: (c) => {
@@ -549,6 +661,8 @@ export function useGame() {
       }
       if (c.action === 'custom' && c.text === 'party') world.partyAll(10000);
       if (c.action === 'custom' && c.text === 'duyen') startDuyen();
+      if (c.action === 'custom' && c.text === 'event') runEvent();
+      if (c.action === 'custom' && c.text === 'car') world.weddingCar();
       if (!IS_STAGE) return; // chỉ trang stage làm theo lệnh có tiếng, tránh 2 giọng
       if (c.action === 'speak' && c.text) voice.say(c.text, true);
       if (c.action === 'custom' && (c.text === 'music:on' || c.text === 'music:off')) music.set(c.text === 'music:on');
@@ -631,6 +745,7 @@ export function useGame() {
         const [a, b] = cast;
         world.say(a, '💍 Cưới em nhé!', 4000);
         propose({ id: a, role: Math.random() < 0.5 ? 'groom' : 'bride', target: shown(b) });
+        voice.say(pick(GAME.autoHook)!(spoken(a), spoken(b)));
         setTimeout(() => {
           const w = s.w;
           if (w?.phase !== 'proposal' || w.ids[other(w.stealRole)] !== b) return;
@@ -643,6 +758,16 @@ export function useGame() {
           }
         }, 10_000 + Math.random() * 12_000);
       }, 4000),
+    );
+    // Sự kiện bất ngờ mỗi 3–5 phút (không chen vào lúc cầu hôn / đi thảm đỏ / làm lễ / se duyên / bình chọn)
+    timers.push(
+      setInterval(() => {
+        const ph = s.w?.phase;
+        if (Date.now() < s.nextEventAt || (ph && ph !== 'after') || s.duyen || s.vote || voice.waiting > 1) return;
+        const [lo, hi] = GAME.eventEveryMs;
+        s.nextEventAt = Date.now() + lo + Math.random() * (hi - lo);
+        runEvent();
+      }, 5000),
     );
     // Nguyệt Lão định kỳ xuống se duyên lúc không có đám
     timers.push(
@@ -699,7 +824,7 @@ export function useGame() {
     return () => clearTimeout(t);
   }, [lastGift]);
 
-  return { status, channelName, lastGift, likeProgress, guestCount, view, queueLen, married, duyen, nguyen, stageCount };
+  return { status, channelName, lastGift, likeProgress, likeNext, guestCount, view, queueLen, married, duyen, nguyen, stageCount, vote, dark };
 }
 
 export type GameState = ReturnType<typeof useGame>;

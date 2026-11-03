@@ -71,6 +71,8 @@ export function GameControls({ stageCount = 0 }: { stageCount?: number }) {
         <B onClick={() => void sendControl('custom', 'clearStage')}>✖ Dọn sân khấu</B>
         <B onClick={() => void sendControl('custom', 'party')}>🎉 Cả sảnh quẩy</B>
         <B onClick={() => void sendControl('custom', 'duyen')}>🧵 Nguyệt Lão se duyên</B>
+        <B onClick={() => void sendControl('custom', 'event')}>🎲 Sự kiện bất ngờ</B>
+        <B onClick={() => void sendControl('custom', 'car')}>🚗 Xe hoa</B>
         <B
           on={musicOn}
           onClick={() => {
@@ -137,7 +139,8 @@ export function GameControls({ stageCount = 0 }: { stageCount?: number }) {
         <B onClick={() => gift(anyone(), 99, 'Bắn tim')}>🎆 99</B>
         <B onClick={() => gift(anyone(), 299, 'Xe')}>🚗 299</B>
         <B onClick={() => gift(anyone(), 1000, 'Thiên hà')}>💎 1000</B>
-        <B onClick={() => emitTest('like', { ...anyone(), likeCount: 300 })}>❤️ 300 tim</B>
+        <B onClick={() => emitTest('like', { ...anyone(), likeCount: 100 })}>❤️ 100 tim</B>
+        <B onClick={() => many(8, () => chat(anyone(), Math.random() < 0.7 ? '1' : '2'))}>💘 8 phiếu bình chọn</B>
       </Row>
     </section>
   );

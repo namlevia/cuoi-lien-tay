@@ -305,6 +305,40 @@ export const GAME = {
   autoAfterMs: 40_000, // phòng im bao lâu thì dàn khách quen tự diễn
   autoEveryMs: 70_000,
 
+  // ---------- Màn mở đầu / đám tự diễn: câu hỏi treo cho người mới lướt vào ----------
+  autoHook: [
+    (a: N, b: N) => `F: Bà con mới vào đúng lúc gay cấn nha! | M: ${a} đang cầu hôn ${b}! | F: ^Đồng ý hay từ chối? Ở lại xem liền!`,
+    (a: N, b: N) => `M: Ai mới vào thì ngồi xuống lẹ! | F: ${b} sắp trả lời ${a} rồi! | M: ^Hồi hộp quá trời!`,
+    (a: N, b: N) => `F: Đoán coi ${b} có gật đầu với ${a} không? | M: MC cá là... ^không dám cá!`,
+  ],
+
+  // ---------- Mốc tim: 100 pháo giấy, 300 cả sảnh quẩy, 1000 xe hoa rước dâu ----------
+  likeMilestones: [100, 300, 1000],
+  likes100: `F: ^Một trăm tim rồi! | M: Bắn pháo giấy! | F: Thả tiếp tới ba trăm là cả sảnh quẩy nha!`,
+  likes1000: `M: ^Một nghìn tim! | F: ^Xe hoa! Xe hoa rước dâu chạy quanh sảnh luôn! | M: Bà con thả tim quá trời, MC cảm động muốn khóc!`,
+
+  // ---------- Bình chọn đẹp đôi sau mỗi đám ----------
+  voteMs: 20_000,
+  voteAsk: [
+    (g: N, b: N) => `F: Bà con chấm điểm giùm MC! | M: ${g} với ${b} có hợp không? | F: Gõ một là hợp, gõ hai là không hợp!`,
+    (g: N, b: N) => `M: Bình chọn nhanh! | F: Thấy ${g} và ${b} đẹp đôi thì gõ một, thấy không hợp thì gõ hai! | M: Hai mươi giây thôi nha!`,
+  ],
+  voteHigh: (p: number) => `M: ^${p} phần trăm khán giả nói hợp! | F: Trời sinh một cặp luôn! | M: Sang năm nhớ mời MC đầy tháng nha!`,
+  voteMid: (p: number) => `F: ${p} phần trăm nói hợp... | M: Hơi lưng chừng ha! | F: Cưới rồi thì từ từ hợp, không sao!`,
+  voteLow: (p: number) => `M: ^Ối! Có ${p} phần trăm nói hợp thôi! | F: Khán giả phũ quá trời! | M: Thôi cưới rồi, ráng sống với nhau nha hai bạn!`,
+  voteNone: `F: Không ai bình chọn luôn hả? | M: Vậy MC tự chấm: ^một trăm điểm! | F: MC thiên vị quá!`,
+
+  // ---------- Sự kiện bất ngờ mỗi 3–5 phút ----------
+  eventEveryMs: [3 * 60_000, 5 * 60_000],
+  ev: {
+    blackoutStart: `M: ^Ơ! Mất điện! | F: Bình tĩnh bà con, đừng ai ăn vụng nha!`,
+    blackoutSwap: (old: N, now: N) => `F: ^Đèn sáng rồi! | M: Ủa khoan... cô dâu đâu phải ${old}! | F: ^${now} đứng đó từ khi nào vậy trời! | M: Mất điện ba giây mà đổi luôn cô dâu!`,
+    blackoutNoCouple: (n: number) => `F: ^Đèn sáng rồi! | M: Ủa bàn số ${n} sao sạch trơn đĩa gà vậy? | F: Ai ăn vụng lúc mất điện, khai mau!`,
+    mom: (b: N) => `M: ^Ối! Mẹ chồng tới! | F: Mẹ chồng lên sân khấu kéo ${b} đi rửa bát kìa! | M: Mới cưới chưa được năm phút bà con ơi!`,
+    ex: (g: N) => `F: ^Có biến! Người yêu cũ xuất hiện! | M: Người yêu cũ của ${g} chạy thẳng lên sân khấu! | F: Khóc lóc thảm thiết luôn! | M: ^Bảo vệ đâu!`,
+    envelope: `M: ^Sui gia tung phong bì! | F: Mưa phong bì cả sảnh luôn bà con ơi! | M: Nhặt được bao nhiêu thì... nhớ trả lại nha!`,
+  },
+
   // ---------- MC rảnh thì nói ----------
   chatter: {
     howTo: [

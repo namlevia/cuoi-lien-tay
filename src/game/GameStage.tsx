@@ -19,18 +19,21 @@ export function GameStage({ game }: { game: GameState }) {
   const [, tick] = useState(0);
   const v = game.view;
   useEffect(() => {
-    if (v?.phase !== 'proposal' && !game.duyen) return;
+    if (v?.phase !== 'proposal' && !game.duyen && !game.vote) return;
     const t = setInterval(() => tick((x) => x + 1), 500);
     return () => clearInterval(t);
-  }, [v?.phase, !!game.duyen]);
+  }, [v?.phase, !!game.duyen, !!game.vote]);
   const left = v ? Math.max(0, Math.ceil((v.until - Date.now()) / 1000)) : 0;
-  const likePct = Math.min(100, (game.likeProgress / GAME.likesPerBoost) * 100);
+  const likePct = Math.min(100, (game.likeProgress / game.likeNext) * 100);
   const canSteal = v && (v.phase === 'proposal' || v.phase === 'walk');
 
   return (
     <div className="dc-stage">
       <canvas ref={gl} width={W} height={H} className="dc-canvas" />
       <canvas ref={ov} width={W} height={H} className="dc-canvas-2d" />
+
+      {/* mất điện: phủ đen sảnh, chữ phía trên vẫn hiện */}
+      <div className={`dc-dark ${game.dark ? 'on' : ''}`} />
 
       <header className="dc-title">{GAME.title}</header>
 
@@ -71,7 +74,9 @@ export function GameStage({ game }: { game: GameState }) {
             💍 <b>{game.married}</b> cặp
           </div>
           <div className="dc-like">
-            <span>🥂</span>
+            <span>
+              ❤️ {game.likeProgress}/{game.likeNext}
+            </span>
             <div className="dc-like-bar">
               <div style={{ width: `${likePct}%` }} />
             </div>
@@ -111,6 +116,13 @@ export function GameStage({ game }: { game: GameState }) {
           <div className="dc-nguyen-h">🧵 Nguyệt Lão se duyên</div>
           <div className="dc-nguyen-ten">{game.nguyen.ten}</div>
           <p>{game.nguyen.loi}</p>
+        </div>
+      )}
+
+      {game.vote && (
+        <div className="dc-steal dc-vote">
+          💘 Hợp không? Gõ <b>1</b> HỢP · <b>2</b> KHÔNG · {Math.max(0, Math.ceil((game.vote.until - Date.now()) / 1000))}s
+          {game.vote.yes + game.vote.no > 0 && <> · {Math.round((game.vote.yes / (game.vote.yes + game.vote.no)) * 100)}% hợp</>}
         </div>
       )}
 

@@ -289,3 +289,18 @@
   top: 458px;
   padding: 6px 14px;
 }
+
+.dc-vote {
+  background: linear-gradient(90deg, #e05780, #b388ff);
+}
+.dc-dark {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.dc-dark.on {
+  opacity: 0.93;
+}
