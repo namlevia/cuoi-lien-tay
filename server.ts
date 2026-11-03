@@ -13,6 +13,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
 import { TikTokLiveConnection, WebcastEvent, ControlEvent } from 'tiktok-live-connector';
 import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
 
@@ -20,7 +21,8 @@ dotenv.config();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// Cổng riêng của Cưới Liền Tay (3005) để không đụng các game live khác hay dùng 3000; bận thì tự lùi sang cổng kế tiếp
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3005;
 
 // Giọng đọc. Đổi ở đây nếu game cần giọng khác (vi-VN-HoaiMyNeural = nữ)
 const TTS_VOICE = process.env.TTS_VOICE || 'vi-VN-NamMinhNeural';
@@ -426,10 +428,27 @@ async function start() {
     app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'dist', 'index.html')));
   }
 
-  // Chỉ nghe trên máy này: API không có đăng nhập, người cùng Wi-Fi không được điều khiển giọng đọc
-  app.listen(PORT, '127.0.0.1', () => {
-    console.log(`Server chạy ở http://localhost:${PORT}  |  Link LIVE Studio: http://lvh.me:${PORT}/?view=stage`);
-  });
+  // Chỉ nghe trên máy này: API không có đăng nhập, người cùng Wi-Fi không được điều khiển giọng đọc.
+  // Cổng bận (đang chạy game live khác) thì tự thử cổng kế tiếp, người dùng không phải tự đổi số.
+  const listen = (port: number, triesLeft: number) => {
+    const srv = app.listen(port, '127.0.0.1', () => {
+      const url = `http://localhost:${port}`;
+      console.log('');
+      console.log(`Server chạy ở ${url}`);
+      console.log(`Link cho TikTok LIVE Studio: http://lvh.me:${port}/?view=stage  (1080 x 1920)`);
+      if (port !== PORT) console.log(`(Cổng ${PORT} đang bận nên game tự dùng cổng ${port})`);
+      console.log('');
+      // BAT-LIVE.bat đặt OPEN_BROWSER=1: tự mở đúng trang điều khiển theo cổng vừa chọn
+      if (process.env.OPEN_BROWSER === '1' && process.platform === 'win32') exec(`start "" "${url}"`);
+    });
+    srv.on('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE' && triesLeft > 0) {
+        console.log(`Cổng ${port} đang bận, thử cổng ${port + 1}...`);
+        listen(port + 1, triesLeft - 1);
+      } else throw err;
+    });
+  };
+  listen(PORT, 20);
 }
 
 start();

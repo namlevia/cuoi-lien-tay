@@ -54,9 +54,9 @@ Lệnh không phân biệt hoa thường, có dấu hay không dấu đều đư
    git clone https://github.com/workaipvlinh-byte/cuoi-lien-tay.git
    ```
 
-2. Bấm đúp `BAT-LIVE.bat`. Lần đầu nó tự cài thư viện (1–2 phút, cần mạng), sau đó tự mở trang điều khiển `http://localhost:3000`.
+2. Bấm đúp `BAT-LIVE.bat`. Lần đầu nó tự cài thư viện (1–2 phút, cần mạng), sau đó tự mở trang điều khiển `http://localhost:3005`. Game dùng cổng riêng **3005** để không đụng các game live khác hay dùng 3000; nếu 3005 đang bận thì tự chuyển sang 3006, 3007… và cửa sổ BAT in ra đúng link.
 3. Trong TikTok LIVE Studio, thêm nguồn **Link**:
-   - Link: `http://lvh.me:3000/?view=stage`
+   - Link: `http://lvh.me:3005/?view=stage` (link đúng luôn hiện trong cửa sổ BAT và trên trang điều khiển)
    - Kích thước: 1080 × 1920
 4. Bắt đầu live, rồi ở trang điều khiển nhập username TikTok (không cần @) và bấm **Kết nối**.
 
@@ -64,7 +64,7 @@ Giữ cửa sổ `BAT-LIVE.bat` mở suốt buổi live, đóng nó là tắt ga
 
 ### Trang điều khiển
 
-Trang `localhost:3000` gồm:
+Trang `localhost:3005` gồm:
 
 - Kết nối TikTok, ô **Đọc ngay** để MC đọc câu bạn gõ, thanh **Tốc độ giọng** (0.8–1.5, mặc định 1.25), đổi tên kênh, nút Reset game.
 - **Điều khiển:** dọn sân khấu, cho cả sảnh quẩy, gọi Nguyệt Lão se duyên ngay, bật/tắt nhạc nền, thanh âm lượng nhạc (0–200%), nghe thử 2 giọng MC.
@@ -85,9 +85,9 @@ Nếu đã clone bằng git: chạy `git pull` trong thư mục rồi mở lại
 
 - **MC không nói nhưng nhạc vẫn chạy:** trình duyệt trong LIVE Studio chặn tự phát tiếng. Làm mới nguồn Link, bấm chuột vào trang một lần nếu LIVE Studio cho tương tác. Gõ thử một câu vào ô **Đọc ngay** để kiểm tra.
 - **Cảnh bị giật:** máy yếu chạy 3D không nổi. Tắt bớt phần mềm khác, hoặc giảm số khách đệm `NPC_COUNT` trong `src/game/world/world.ts`.
-- **Không vào được `localhost:3000`:** xem cửa sổ `BAT-LIVE.bat`, phải có dòng `Server chạy ở http://localhost:3000`. Báo chưa có `npm` thì cài Node.js rồi khởi động lại máy. Báo lỗi cài thư viện thì xóa thư mục `node_modules` rồi chạy lại.
+- **Không vào được trang điều khiển:** xem cửa sổ `BAT-LIVE.bat`, phải có dòng `Server chạy ở http://localhost:3005` (hoặc cổng khác nếu 3005 bận). Báo chưa có `npm` thì cài Node.js rồi khởi động lại máy. Báo lỗi cài thư viện thì xóa thư mục `node_modules` rồi chạy lại.
 - **LIVE Studio không hiện gì với link `lvh.me`:** một số mạng hoặc phần mềm diệt virus chặn tên miền này. Mở Notepad bằng quyền Administrator, mở file `C:\Windows\System32\drivers\etc\hosts`, thêm dòng `127.0.0.1 lvh.me` ở cuối, lưu rồi làm mới nguồn Link.
-- **Báo lỗi `EADDRINUSE`:** cổng 3000 đang bị app khác dùng (thường là game live khác). Tắt cửa sổ BAT kia rồi chạy lại. Mỗi lúc chỉ chạy được một game.
+- **Cổng bận:** game tự thử 3005 rồi 3006, 3007… tới 3025, không cần tự đổi số. Nếu cổng đổi thì nhớ sửa link nguồn trong LIVE Studio cho khớp số cổng trong cửa sổ BAT.
 
 ## Sửa game
 

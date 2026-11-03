@@ -9,7 +9,7 @@ const pick = () => {
 };
 
 /**
- * Trang điều khiển (http://localhost:3000). Im lặng, không phát tiếng.
+ * Trang điều khiển (http://localhost:3005, cổng bận thì 3006...). Im lặng, không phát tiếng.
  * - Kết nối phòng live
  * - Gõ câu cho giọng đọc trên stage
  * - Nút giả lập sự kiện để test khi chưa live
@@ -95,7 +95,8 @@ export function Dashboard({
                 <span className="text-slate-400">● Chưa kết nối</span>
               )}
               <span className="text-slate-500">
-                LIVE Studio: <b className="text-slate-300">http://lvh.me:3000/?view=stage</b> · 1080×1920
+                {/* đúng cổng game đang chạy (mặc định 3005, bận thì tự đổi) */}
+                LIVE Studio: <b className="text-slate-300 select-all">{`http://lvh.me:${window.location.port || '80'}/?view=stage`}</b> · 1080×1920
               </span>
             </div>
             {(msg || status?.error) && <div className="mt-1 text-xs text-amber-300">{msg || status?.error}</div>}

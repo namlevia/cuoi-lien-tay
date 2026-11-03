@@ -6,9 +6,11 @@ if not exist node_modules (
   call npm install
 )
 echo Dang bat game... Dong cua so nay la tat game.
-echo Link cho TikTok LIVE Studio: http://lvh.me:3000/?view=stage  (1080 x 1920)
+echo Game dung cong rieng 3005 (cong ban thi tu doi sang 3006, 3007...).
+echo Link cho TikTok LIVE Studio se hien ben duoi va tren trang dieu khien.
 rem Che do live: trang stage khong tu tai lai khi sua code
 set LIVE_MODE=1
-start "" cmd /c "timeout /t 8 >nul & start http://localhost:3000"
+rem Server tu mo trang dieu khien dung cong vua chon
+set OPEN_BROWSER=1
 npm run dev
 pause
