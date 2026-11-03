@@ -731,7 +731,8 @@ export function useGame() {
     GAME.cast.forEach((name, i) =>
       setTimeout(() => {
         names.current.set(`cast-${i}`, name);
-        world.ensure(`cast-${i}`, name);
+        // giới tính theo cách gọi: Cô / Chị / Bà / Con là nữ
+        world.ensure(`cast-${i}`, name, '', false, /^(Cô|Chị|Bà|Con) /.test(name));
       }, 1500 + i * 900),
     );
     // Phòng vắng: dàn khách quen tự cầu hôn nhau, đồng ý / từ chối ngẫu nhiên như thật
@@ -742,9 +743,12 @@ export function useGame() {
         const cast = GAME.cast.map((_, i) => `cast-${i}`).filter((id) => world.has(id)).sort(() => Math.random() - 0.5);
         if (cast.length < 2) return;
         s.lastAuto = now;
-        const [a, b] = cast;
+        const fem = (id: string) => /^(Cô|Chị|Bà|Con) /.test(shown(id));
+        const a = cast[0];
+        // ưu tiên ghép 1 nam 1 nữ, vai theo giới tính người hỏi
+        const b = cast.slice(1).find((x) => fem(x) !== fem(a)) ?? cast[1];
         world.say(a, '💍 Cưới em nhé!', 4000);
-        propose({ id: a, role: Math.random() < 0.5 ? 'groom' : 'bride', target: shown(b) });
+        propose({ id: a, role: fem(a) ? 'bride' : 'groom', target: shown(b) });
         voice.say(pick(GAME.autoHook)!(spoken(a), spoken(b)));
         setTimeout(() => {
           const w = s.w;

@@ -116,8 +116,8 @@ class World {
     this.hall = buildHall(s);
 
     // 2 MC: anh MC vest đen nơ đỏ, chị MC áo dài hồng
-    this.mcM = new Chibi({ ...guestLook('mc-nam'), body: 'suit', main: '#16161c', pants: '#16161c', accent: '#111111', hair: '#1b1512', longHair: false, hat: 'none', flower: true }, 1.15);
-    this.mcF = new Chibi({ ...guestLook('mc-nu'), body: 'aodaiF', main: '#ff8fab', pants: '#ffffff', accent: '#f6c453', hair: '#2b1d16', longHair: true, hat: 'none' }, 1.15);
+    this.mcM = new Chibi({ ...guestLook('mc-nam'), body: 'suit', main: '#16161c', pants: '#16161c', accent: '#111111', hair: '#1b1512', longHair: false, hairStyle: 'sidePart', hat: 'none', flower: true }, 1.15);
+    this.mcF = new Chibi({ ...guestLook('mc-nu'), body: 'aodaiF', main: '#ff8fab', pants: '#ffffff', accent: '#f6c453', hair: '#2b1d16', longHair: true, hairStyle: 'long', hat: 'none' }, 1.15);
     this.mcM.root.position.set(-4.2, STAGE_Y, -21.2);
     this.mcF.root.position.set(4.2, STAGE_Y, -21.2);
     this.mcM.root.rotation.y = 0.35;
@@ -288,7 +288,7 @@ class World {
   }
 
   /** Người xem comment: vào từ cổng hoa, đi tìm ghế */
-  ensure(id: string, name: string, avatarUrl = '', passer = false) {
+  ensure(id: string, name: string, avatarUrl = '', passer = false, fem?: boolean) {
     let g = this.guests.get(id);
     if (g) {
       if (!passer) g.passer = false; // người lướt qua giờ đã comment: thành khách chính thức
@@ -308,7 +308,7 @@ class World {
           this.guests.delete(old.id);
         }
       }
-      g = this.makeGuest(id, name, true, guestLook(id));
+      g = this.makeGuest(id, name, true, guestLook(id, fem));
       g.passer = passer;
       g.active = Date.now();
       g.c.root.position.set((Math.random() - 0.5) * 1.2, 0, GATE_Z + 2.5);

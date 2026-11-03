@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { hash } from './tags';
 
 export type Body = 'suit' | 'shirt' | 'dress' | 'aodaiM' | 'aodaiF' | 'gown' | 'princess' | 'mermaid' | 'shortGown' | 'shorts';
+export type HairStyle = 'short' | 'sidePart' | 'buzz' | 'long' | 'ponytail' | 'bun' | 'bob';
 export type Hat = 'none' | 'veil' | 'tiara' | 'veilTiara' | 'khanVan' | 'khanXep' | 'headphones' | 'cap' | 'bun';
 
 export interface Look {
@@ -13,7 +14,8 @@ export interface Look {
   shoes: string;
   skin: string;
   hair: string;
-  longHair: boolean;
+  longHair: boolean; // tóc nữ (dài) / tóc nam (ngắn) khi không chỉ rõ kiểu
+  hairStyle?: HairStyle;
   hat: Hat;
   flower?: boolean; // hoa cài áo chú rể
   beard?: boolean; // râu bạc (Nguyệt Lão)
@@ -31,34 +33,34 @@ export interface WeddingSet {
 export const WEDDING_SETS: WeddingSet[] = [
   {
     name: 'Cổ điển',
-    groom: { body: 'suit', main: '#1d1d24', pants: '#1d1d24', accent: '#111111', shoes: '#141414', flower: true },
-    bride: { body: 'gown', main: '#fbfbfb', accent: '#f4d6df', hat: 'veil', longHair: true },
+    groom: { body: 'suit', main: '#1d1d24', pants: '#1d1d24', accent: '#111111', shoes: '#141414', flower: true, longHair: false, hairStyle: 'sidePart' },
+    bride: { body: 'gown', main: '#fbfbfb', accent: '#f4d6df', hat: 'veil', longHair: true, hairStyle: 'bun' },
   },
   {
     name: 'Áo dài truyền thống',
-    groom: { body: 'aodaiM', main: '#e0a526', pants: '#fff8e6', accent: '#b5651d', shoes: '#3a2a1a', hat: 'khanXep' },
-    bride: { body: 'aodaiF', main: '#c8102e', pants: '#fff1f1', accent: '#f6c453', hat: 'khanVan', longHair: true },
+    groom: { body: 'aodaiM', main: '#e0a526', pants: '#fff8e6', accent: '#b5651d', shoes: '#3a2a1a', hat: 'khanXep', longHair: false, hairStyle: 'short' },
+    bride: { body: 'aodaiF', main: '#c8102e', pants: '#fff1f1', accent: '#f6c453', hat: 'khanVan', longHair: true, hairStyle: 'bun' },
   },
   {
     name: 'Sang chảnh',
-    groom: { body: 'suit', main: '#f7f5f0', pants: '#f7f5f0', accent: '#1a1a1a', shoes: '#e9e4da', flower: true },
-    bride: { body: 'mermaid', main: '#ffffff', accent: '#e8d8b0', hat: 'tiara', longHair: true },
+    groom: { body: 'suit', main: '#f7f5f0', pants: '#f7f5f0', accent: '#1a1a1a', shoes: '#e9e4da', flower: true, longHair: false, hairStyle: 'sidePart' },
+    bride: { body: 'mermaid', main: '#ffffff', accent: '#e8d8b0', hat: 'tiara', longHair: true, hairStyle: 'bun' },
   },
   {
     name: 'Thanh lịch',
-    groom: { body: 'suit', main: '#1f2f5c', pants: '#1f2f5c', accent: '#c9ced6', shoes: '#141414', flower: true },
-    bride: { body: 'aodaiF', main: '#fdfdfd', pants: '#ffffff', accent: '#e9c46a', hat: 'veil', longHair: true },
+    groom: { body: 'suit', main: '#1f2f5c', pants: '#1f2f5c', accent: '#c9ced6', shoes: '#141414', flower: true, longHair: false, hairStyle: 'sidePart' },
+    bride: { body: 'aodaiF', main: '#fdfdfd', pants: '#ffffff', accent: '#e9c46a', hat: 'veil', longHair: true, hairStyle: 'bun' },
   },
   {
     name: 'Dễ thương',
-    groom: { body: 'suit', main: '#9aa3ad', pants: '#9aa3ad', accent: '#f49ab2', shoes: '#2b2b2b', flower: true },
-    bride: { body: 'princess', main: '#f7b6c8', accent: '#ffffff', hat: 'veilTiara', longHair: true },
+    groom: { body: 'suit', main: '#9aa3ad', pants: '#9aa3ad', accent: '#f49ab2', shoes: '#2b2b2b', flower: true, longHair: false, hairStyle: 'sidePart' },
+    bride: { body: 'princess', main: '#f7b6c8', accent: '#ffffff', hat: 'veilTiara', longHair: true, hairStyle: 'bun' },
   },
   {
     name: 'Bựa',
     rare: true,
-    groom: { body: 'shorts', main: '#1d1d24', pants: '#ff8a3d', accent: '#d62828', shoes: '#2a6fdb', flower: true },
-    bride: { body: 'shortGown', main: '#fbfbfb', accent: '#f4d6df', shoes: '#ffffff', hat: 'veil', longHair: true },
+    groom: { body: 'shorts', main: '#1d1d24', pants: '#ff8a3d', accent: '#d62828', shoes: '#2a6fdb', flower: true, longHair: false, hairStyle: 'buzz' },
+    bride: { body: 'shortGown', main: '#fbfbfb', accent: '#f4d6df', shoes: '#ffffff', hat: 'veil', longHair: true, hairStyle: 'bun' },
   },
 ];
 
@@ -71,24 +73,30 @@ export function pickWeddingSet(): WeddingSet {
 const SKINS = ['#ffe4cf', '#fbd9bd', '#f5cdaa', '#f9dcc4', '#efc6a2'];
 const HAIRS = ['#141010', '#1b1512', '#2b1d16', '#141010', '#3a2618'];
 const DYED = ['#d6332f', '#f08a24', '#f2c94c', '#f4f4f4', '#f49ab2', '#8a6cff'];
+// áo thun màu cơ bản kiểu đám đông Việt + quần jean
+const TEES = ['#2e9e5b', '#e85a9b', '#2f6fd6', '#ffffff', '#f2c94c', '#e74c3c', '#1f9d8b', '#8e44ad', '#f5f5f5', '#ff8fab'];
+const JEANS = ['#3b5b8c', '#2f4a73', '#1f2f4d', '#2b2b2b', '#e9e4da', '#4a6fa5'];
 const CLOTHES = ['#f49ab2', '#7ec8e3', '#ffd166', '#06d6a0', '#ef476f', '#8338ec', '#ff9f1c', '#a7c957', '#e9edc9', '#90e0ef', '#ffafcc', '#cdb4db'];
 const PANTS = ['#2b2d42', '#3d405b', '#e9e4da', '#1d3557', '#6d6875'];
 
-/** Khách mời: cùng username luôn ra cùng ngoại hình */
-export function guestLook(id: string): Look {
+/** Khách mời: cùng username luôn ra cùng ngoại hình. `fem` ép giới tính (dàn khách quen theo tên), không có thì ngẫu nhiên */
+export function guestLook(id: string, fem?: boolean): Look {
   const h = hash(id);
   const r = (n: number, k: number) => Math.floor(((h >>> (k * 3)) % 1000) / 1000 * n);
-  const kind = (['shirt', 'dress', 'suit', 'aodaiF', 'shirt', 'dress'] as Body[])[r(6, 1)];
-  const fem = kind === 'dress' || kind === 'aodaiF';
+  const f = fem ?? r(2, 1) === 1;
+  // phần lớn mặc áo thun + quần jean như đám đông ngoài đời; có thêm sơ mi/vest, váy, áo dài
+  const kind = (f ? ['shirt', 'shirt', 'dress', 'aodaiF', 'shirt'] : ['shirt', 'shirt', 'shirt', 'suit'])[r(f ? 5 : 4, 10)] as Body;
+  const tee = kind === 'shirt';
   return {
     body: kind,
-    main: CLOTHES[r(CLOTHES.length, 2)],
-    pants: PANTS[r(PANTS.length, 3)],
+    main: tee ? TEES[r(TEES.length, 2)] : CLOTHES[r(CLOTHES.length, 2)],
+    pants: tee ? JEANS[r(JEANS.length, 3)] : PANTS[r(PANTS.length, 3)],
     accent: CLOTHES[r(CLOTHES.length, 4)],
     shoes: '#2b2b2b',
     skin: SKINS[r(SKINS.length, 5)],
-    hair: r(10, 6) < 3 ? DYED[r(DYED.length, 7)] : HAIRS[r(HAIRS.length, 8)],
-    longHair: fem ? r(10, 9) < 8 : r(10, 9) < 1,
+    hair: r(10, 6) < 2 ? DYED[r(DYED.length, 7)] : HAIRS[r(HAIRS.length, 8)],
+    longHair: f,
+    hairStyle: (f ? ['long', 'ponytail', 'bun', 'bob', 'long'] : ['short', 'sidePart', 'buzz', 'short'])[r(f ? 5 : 4, 9)] as HairStyle,
     hat: 'none',
   };
 }
@@ -97,9 +105,12 @@ export function guestLook(id: string): Look {
 export function npcLook(seed: string): Look {
   const base = guestLook(seed);
   const r = Math.random();
-  if (r < 0.14) return { ...base, age: 'kid', body: Math.random() < 0.5 ? 'shirt' : 'dress', hair: HAIRS[0], longHair: Math.random() < 0.4 };
+  if (r < 0.14) {
+    const girl = Math.random() < 0.5;
+    return { ...base, age: 'kid', body: girl ? 'dress' : 'shirt', hair: HAIRS[0], longHair: girl, hairStyle: girl ? 'ponytail' : 'short' };
+  }
   if (r < 0.26)
-    return { ...base, age: 'old', body: 'aodaiF', main: ['#7b4b94', '#8d5a3b', '#4f6d7a', '#a14a5b'][Math.floor(Math.random() * 4)], pants: '#2b2b2b', hair: '#d9d9d9', longHair: false, hat: 'bun' };
+    return { ...base, age: 'old', body: 'aodaiF', main: ['#7b4b94', '#8d5a3b', '#4f6d7a', '#a14a5b'][Math.floor(Math.random() * 4)], pants: '#2b2b2b', hair: '#d9d9d9', longHair: true, hairStyle: 'bun', hat: 'none' };
   return base;
 }
 
@@ -107,7 +118,7 @@ export function npcLook(seed: string): Look {
 export const ageScale = (l: Look) => (l.age === 'kid' ? 0.72 : 1);
 
 export function weddingLook(base: Look, part: Partial<Look>): Look {
-  return { ...base, pants: '#ffffff', shoes: '#f4f4f4', hat: 'none', ...part, longHair: part.longHair ?? base.longHair };
+  return { ...base, pants: '#ffffff', shoes: '#f4f4f4', hat: 'none', ...part, longHair: part.longHair ?? base.longHair, hairStyle: part.hairStyle ?? base.hairStyle };
 }
 
 // ---------- vật liệu + khối dùng chung (tiết kiệm bộ nhớ) ----------
@@ -128,8 +139,16 @@ export function mat(color: string, opacity = 1) {
 const G = {
   head: new THREE.SphereGeometry(0.27, 20, 14),
   hair: new THREE.SphereGeometry(0.285, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
+  hairShort: new THREE.SphereGeometry(0.282, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.42),
+  hairBuzz: new THREE.SphereGeometry(0.276, 18, 8, 0, Math.PI * 2, 0, Math.PI * 0.38),
+  hairBob: new THREE.SphereGeometry(0.295, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.62),
+  fringe: new THREE.BoxGeometry(0.32, 0.07, 0.1),
+  tailKnot: new THREE.SphereGeometry(0.075, 8, 6),
+  tail: new THREE.CylinderGeometry(0.06, 0.025, 0.42, 8),
+  brow: new THREE.BoxGeometry(0.075, 0.018, 0.012),
+  nose: new THREE.SphereGeometry(0.024, 6, 5),
   longHair: new THREE.CylinderGeometry(0.21, 0.24, 0.62, 14),
-  eye: new THREE.SphereGeometry(0.038, 8, 6),
+  eye: new THREE.SphereGeometry(0.031, 8, 6),
   smile: new THREE.TorusGeometry(0.045, 0.012, 4, 10, Math.PI),
   cheek: new THREE.CircleGeometry(0.04, 10),
   arm: new THREE.CapsuleGeometry(0.045, 0.3, 4, 8),
@@ -222,7 +241,7 @@ export class Chibi {
     this.armR.position.set(0.185, 0.87, 0);
     this.legL.position.set(-0.075, LEG, 0);
     this.legR.position.set(0.075, LEG, 0);
-    this.head.scale.setScalar(0.8);
+    this.head.scale.setScalar(0.74); // đầu nhỏ lại cho ra dáng người thật hơn
     this.build();
   }
 
@@ -335,19 +354,42 @@ export class Chibi {
     }
     // đầu
     const h = this.head;
-    h.position.y = 1.2;
+    h.position.y = 1.18;
     h.add(mesh(G.head, L.skin));
-    const hair = mesh(G.hair, L.hair, 0, 0.03, -0.02);
-    hair.rotation.x = -0.35;
-    h.add(hair);
-    if (L.longHair) h.add(mesh(G.longHair, L.hair, 0, -0.2, -0.12));
-    h.add(mesh(G.eye, '#1a1a1a', -0.095, 0.0, 0.235));
-    h.add(mesh(G.eye, '#1a1a1a', 0.095, 0.0, 0.235));
+    // tóc: nam tóc ngắn / rẽ ngôi / đầu đinh, nữ tóc dài / đuôi ngựa / búi / bob
+    const style: HairStyle = L.hairStyle ?? (L.longHair ? 'long' : 'short');
+    const cap = (g: THREE.BufferGeometry, rx: number) => {
+      const m = mesh(g, L.hair, 0, 0.03, -0.02);
+      m.rotation.x = rx;
+      h.add(m);
+    };
+    if (style === 'buzz') cap(G.hairBuzz, -0.25);
+    else if (style === 'short' || style === 'sidePart') {
+      cap(G.hairShort, -0.28);
+      const fr = mesh(G.fringe, L.hair, style === 'sidePart' ? 0.05 : 0, 0.17, 0.19);
+      fr.rotation.set(-0.55, 0, style === 'sidePart' ? -0.35 : 0);
+      h.add(fr);
+    } else if (style === 'bob') cap(G.hairBob, -0.12);
+    else {
+      cap(G.hair, -0.35);
+      if (style === 'long') h.add(mesh(G.longHair, L.hair, 0, -0.2, -0.12));
+      if (style === 'ponytail') {
+        h.add(mesh(G.tailKnot, L.hair, 0, 0.06, -0.27));
+        const t = mesh(G.tail, L.hair, 0, -0.16, -0.31);
+        t.rotation.x = 0.25;
+        h.add(t);
+      }
+      if (style === 'bun') h.add(mesh(G.bun, L.hair, 0, 0.2, -0.2));
+    }
+    h.add(mesh(G.eye, '#1a1a1a', -0.09, 0.0, 0.24));
+    h.add(mesh(G.eye, '#1a1a1a', 0.09, 0.0, 0.24));
+    h.add(mesh(G.brow, L.age === 'old' ? '#bdbdbd' : '#2a1c16', -0.09, 0.065, 0.245), mesh(G.brow, L.age === 'old' ? '#bdbdbd' : '#2a1c16', 0.09, 0.065, 0.245));
+    h.add(mesh(G.nose, '#e8b896', 0, -0.035, 0.265));
     const smile = mesh(G.smile, '#7a2e2e', 0, -0.085, 0.245);
     smile.rotation.z = Math.PI;
     h.add(smile);
-    const ck1 = mesh(G.cheek, '#ff9fb2', -0.16, -0.06, 0.2, 0.7);
-    const ck2 = mesh(G.cheek, '#ff9fb2', 0.16, -0.06, 0.2, 0.7);
+    const ck1 = mesh(G.cheek, '#ff9fb2', -0.16, -0.06, 0.2, 0.4);
+    const ck2 = mesh(G.cheek, '#ff9fb2', 0.16, -0.06, 0.2, 0.4);
     ck1.rotation.y = -0.6;
     ck2.rotation.y = 0.6;
     h.add(ck1, ck2);
