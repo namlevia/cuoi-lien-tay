@@ -98,13 +98,6 @@ export function GameStage({ game }: { game: GameState }) {
           <li>
             Người được hỏi gõ <b>ĐỒNG Ý</b> là lên lễ đường
           </li>
-          <li>
-            Không chịu? Gõ <b>CƯỚP</b> mở PK · phe giữ gõ <b>KHÔNG</b> · 1 xu = 10 điểm
-          </li>
-          <li>Tặng quà nhiều nhất được làm ba mẹ cô dâu chú rể</li>
-          <li>
-            Gõ <b>QUẨY</b> ra sàn nhảy · <b>SE DUYÊN</b> khi Nguyệt Lão xuống
-          </li>
         </ol>
       </div>
 
