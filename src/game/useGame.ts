@@ -46,6 +46,30 @@ interface Wedding {
   open?: boolean; // người được hỏi im lặng / vắng mặt: ai gõ đồng ý trước là được cưới
 }
 
+// ---------- Bảng Top đại gia: lưu theo ngày trong trình duyệt, làm mới nguồn Link LIVE Studio không bị mất ----------
+type TopRow = { id: string; name: string; coins: number };
+const topKey = () => `cuoi-lien-tay-top-${new Date().toLocaleDateString('en-CA')}`;
+function loadTop(): Map<string, { name: string; coins: number }> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(topKey()) ?? '[]') as [string, { name: string; coins: number }][];
+    return new Map(raw);
+  } catch {
+    return new Map();
+  }
+}
+function saveTop(m: Map<string, { name: string; coins: number }>) {
+  try {
+    localStorage.setItem(topKey(), JSON.stringify([...m.entries()]));
+  } catch {
+    /* trình duyệt chặn lưu: bảng vẫn chạy, chỉ là làm mới thì mất */
+  }
+}
+const topRows = (m: Map<string, { name: string; coins: number }>): TopRow[] =>
+  [...m.entries()]
+    .sort((a, b) => b[1].coins - a[1].coins)
+    .slice(0, 7)
+    .map(([id, v]) => ({ id, name: v.name, coins: v.coins }));
+
 /** PK cướp dâu đang diễn ra */
 interface Pk {
   w: Wedding;
@@ -106,7 +130,7 @@ export function useGame() {
   const [dark, setDark] = useState(false);
   const [pk, setPk] = useState<{ until: number; atk: number; def: number; atkName: string; defName: string } | null>(null);
   const [parents, setParents] = useState<{ groom: string; bride: string } | null>(null);
-  const [top, setTop] = useState<{ id: string; name: string; coins: number }[]>([]);
+  const [top, setTop] = useState<TopRow[]>(() => topRows(loadTop()));
   const likeBase = useRef<number | null>(null);
   const avatars = useRef(new Map<string, string>());
   const names = useRef(new Map<string, string>()); // id -> tên hiển thị (đã che từ bậy)
@@ -152,7 +176,7 @@ export function useGame() {
     pk: null as null | Pk,
     bless: new Map<string, number>(), // xu chúc phúc trong đám hiện tại
     parents: [null, null] as [string | null, string | null], // [phụ huynh nhà trai, nhà gái]
-    giftTotal: new Map<string, number>(), // tổng xu mỗi người cả buổi live (bảng Top đại gia, chỉ tính quà)
+    giftTotal: loadTop(), // tổng xu mỗi người trong ngày (bảng Top đại gia, chỉ tính quà; làm mới trang không mất)
     djPending: false, // có quà / tim gọi nhảy lúc đang cưới: nhảy sau khi cưới xong
     chatterGap: GAME.chatterQuietMs,
   }));
@@ -801,13 +825,10 @@ export function useGame() {
       }
       if (!pkAtk) bless(id, coins);
       // bảng Top đại gia mừng cưới (góc dưới phải): 7 người tặng nhiều xu nhất cả buổi
-      s.giftTotal.set(id, (s.giftTotal.get(id) ?? 0) + coins);
-      setTop(
-        [...s.giftTotal.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 7)
-          .map(([x, c]) => ({ id: x, name: shown(x), coins: c })),
-      );
+      const prev = s.giftTotal.get(id);
+      s.giftTotal.set(id, { name, coins: (prev?.coins ?? 0) + coins });
+      saveTop(s.giftTotal);
+      setTop(topRows(s.giftTotal));
       if (s.duyen && !s.duyen.maker && Date.now() < s.duyen.until && world.has(id)) {
         s.duyen.maker = id;
         world.matchmaker(id);

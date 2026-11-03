@@ -444,4 +444,9 @@
 .dc-top-row b {
   color: #ffd166;
   white-space: nowrap;
+}.dc-top-empty {
+  padding: 6px 0 2px;
+  text-align: center;
+  font-size: 18px;
+  opacity: 0.85;
 }

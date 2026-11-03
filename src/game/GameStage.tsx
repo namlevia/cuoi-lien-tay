@@ -103,18 +103,18 @@ export function GameStage({ game }: { game: GameState }) {
         {HINTS[hint]}
       </div>
 
-      {game.top.length > 0 && (
-        <div className="dc-top">
-          <div className="dc-top-h">🏆 Top đại gia mừng cưới</div>
-          {game.top.map((t, i) => (
-            <div key={t.id} className="dc-top-row">
-              <span className="dc-top-rank">{MEDALS[i] ?? i + 1}</span>
-              <span className="dc-top-name">{cut(t.name, 11)}</span>
-              <b>{t.coins} xu</b>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* luôn hiện; chưa ai tặng thì mời tặng quà để lên bảng */}
+      <div className="dc-top">
+        <div className="dc-top-h">🏆 Top đại gia mừng cưới</div>
+        {game.top.map((t, i) => (
+          <div key={t.id} className="dc-top-row">
+            <span className="dc-top-rank">{MEDALS[i] ?? i + 1}</span>
+            <span className="dc-top-name">{cut(t.name, 11)}</span>
+            <b>{t.coins} xu</b>
+          </div>
+        ))}
+        {game.top.length === 0 && <div className="dc-top-empty">Tặng quà mừng cưới để lên bảng 🎁</div>}
+      </div>
 
       {game.pk ? (
         <div className="dc-pk">
