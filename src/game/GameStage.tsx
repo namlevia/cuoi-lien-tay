@@ -5,6 +5,13 @@ import { H, W, world } from './world/world';
 import './stage.css';
 
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+const HINTS = [
+  <>🤵 Gõ <b>CƯỚI VỢ @tên</b> · 👰 <b>CƯỚI CHỒNG @tên</b></>,
+  <>💖 Người được hỏi gõ <b>ĐỒNG Ý</b> mới cưới</>,
+  <>⚔️ Đang cầu hôn? Gõ <b>CƯỚP</b> để PK</>,
+  <>💃 Gõ <b>QUẨY</b> · 🙏 <b>SE DUYÊN</b> khi Nguyệt Lão xuống</>,
+];
+const MEDALS = ['🥇', '🥈', '🥉'];
 /** phần trăm thanh phe cướp (chưa ai có điểm thì chia đôi; luôn chừa chỗ cho số của cả 2 phe) */
 const pkPct = (a: number, d: number) => (a + d === 0 ? 50 : Math.min(85, Math.max(15, (a / (a + d)) * 100)));
 
@@ -28,6 +35,11 @@ export function GameStage({ game }: { game: GameState }) {
   const left = v ? Math.max(0, Math.ceil((v.until - Date.now()) / 1000)) : 0;
   const likePct = Math.min(100, (game.likeProgress / game.likeNext) * 100);
   const canSteal = v && v.phase === 'proposal' && !v.pkDone;
+  const [hint, setHint] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setHint((h) => (h + 1) % HINTS.length), 4000);
+    return () => clearInterval(t);
+  }, []);
 
   return (
     <div className="dc-stage">
@@ -86,17 +98,23 @@ export function GameStage({ game }: { game: GameState }) {
         </div>
       </div>
 
-      {/* Hướng dẫn: 1 hàng ngang (bản mobile cắt 2 bên nên không để ở góc) */}
-      <div className="dc-guide">
-        <span className="dc-guide-h">Gõ:</span>
-        <span className="dc-chip">🤵 CƯỚI VỢ @tên</span>
-        <span className="dc-chip">👰 CƯỚI CHỒNG @tên</span>
+      {/* Hướng dẫn: 1 dòng, tự đổi nội dung mỗi 4 giây cho gọn (bản mobile cắt 2 bên nên không để ở góc) */}
+      <div key={hint} className="dc-guide">
+        {HINTS[hint]}
       </div>
-      <div className="dc-guide dc-guide2">
-        <span className="dc-chip">💖 Người được hỏi gõ ĐỒNG Ý mới cưới</span>
-        <span className="dc-chip">💃 QUẨY</span>
-        <span className="dc-chip">🙏 SE DUYÊN</span>
-      </div>
+
+      {game.top.length > 0 && (
+        <div className="dc-top">
+          <div className="dc-top-h">🏆 Top đại gia mừng cưới</div>
+          {game.top.map((t, i) => (
+            <div key={t.id} className="dc-top-row">
+              <span className="dc-top-rank">{MEDALS[i] ?? i + 1}</span>
+              <span className="dc-top-name">{cut(t.name, 11)}</span>
+              <b>{t.coins} xu</b>
+            </div>
+          ))}
+        </div>
+      )}
 
       {game.pk ? (
         <div className="dc-pk">

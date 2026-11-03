@@ -38,12 +38,12 @@
   top: 214px;
   left: 105px;
   right: 105px;
-  height: 88px;
+  height: 70px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 0 18px;
-  border-radius: 24px;
+  gap: 12px;
+  padding: 0 16px;
+  border-radius: 22px 22px 8px 8px;
   background: rgba(255, 250, 245, 0.94);
   border: 3px solid #c4cad4;
   box-shadow: 0 8px 24px rgba(5, 10, 30, 0.45);
@@ -68,8 +68,8 @@
   }
 }
 .dc-ava {
-  width: 62px;
-  height: 62px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   object-fit: cover;
   border: 4px solid #f2b8c6;
@@ -89,39 +89,39 @@
   flex: 1;
 }
 .dc-who b {
-  font-size: 27px;
+  font-size: 24px;
   font-weight: 800;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .dc-who span {
-  font-size: 20px;
+  font-size: 18px;
   color: #9a6470;
 }
 .dc-side {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   align-items: flex-end;
   flex: none;
 }
 .dc-queue {
-  font-size: 22px;
+  font-size: 19px;
 }
 .dc-queue b {
-  font-size: 27px;
+  font-size: 23px;
   color: #c2415d;
 }
 .dc-like {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 19px;
+  gap: 6px;
+  font-size: 17px;
 }
 .dc-like-bar {
-  width: 84px;
-  height: 12px;
+  width: 70px;
+  height: 10px;
   border-radius: 999px;
   background: #f3dde3;
   overflow: hidden;
@@ -132,20 +132,34 @@
   transition: width 0.4s;
 }
 
+/* 1 dòng hướng dẫn dính ngay dưới thanh trạng thái, tự đổi nội dung mỗi 4 giây */
 .dc-guide {
   position: absolute;
-  top: 310px;
+  top: 287px;
   left: 105px;
   right: 105px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 7px 12px;
-  border-radius: 18px;
-  background: rgba(255, 250, 245, 0.92);
+  padding: 6px 12px;
+  border-radius: 8px 8px 18px 18px;
+  background: rgba(253, 227, 234, 0.92);
   border: 3px solid #c4cad4;
-  box-shadow: 0 6px 16px rgba(5, 10, 30, 0.45);
+  border-top: none;
+  box-shadow: 0 6px 16px rgba(5, 10, 30, 0.4);
+  text-align: center;
+  font-size: 21px;
+  font-weight: 700;
+  color: #7a2e43;
+  white-space: nowrap;
+  overflow: hidden;
+  animation: dc-hint-in 0.4s ease-out both;
+}
+.dc-guide b {
+  color: #c2415d;
+}
+@keyframes dc-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 .dc-guide-h {
   font-weight: 800;
@@ -169,7 +183,7 @@
 }
 .dc-gift {
   position: absolute;
-  top: 1340px;
+  top: 1450px;
   left: 0;
   right: 0;
   margin: 0 auto;
@@ -215,7 +229,7 @@
 /* Banner cướp dâu: đỏ, nhấp nháy, nằm dưới 2 hàng hướng dẫn */
 .dc-steal {
   position: absolute;
-  top: 440px;
+  top: 345px;
   left: 0;
   right: 0;
   margin: 0 auto;
@@ -300,7 +314,7 @@
 /* PK cướp dâu: 2 phe, thanh điểm đỏ (cướp) / xanh (giữ), nằm dưới 2 hàng hướng dẫn */
 .dc-pk {
   position: absolute;
-  top: 440px;
+  top: 345px;
   left: 120px;
   right: 120px;
   padding: 12px 18px 14px;
@@ -388,4 +402,46 @@
 }
 .dc-dark.on {
   opacity: 0.93;
+}
+
+/* Top đại gia mừng cưới: góc dưới bên phải (né vùng comment bên trái của TikTok, né mép phải bị cắt) */
+.dc-top {
+  position: absolute;
+  top: 1090px;
+  right: 105px;
+  width: 300px;
+  padding: 10px 14px 12px;
+  border-radius: 20px;
+  background: rgba(20, 10, 30, 0.72);
+  border: 2px solid #ffd166;
+  color: #fff;
+  font-size: 20px;
+}
+.dc-top-h {
+  margin-bottom: 6px;
+  text-align: center;
+  font-weight: 800;
+  color: #ffd166;
+}
+.dc-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+.dc-top-rank {
+  width: 30px;
+  text-align: center;
+  font-weight: 800;
+}
+.dc-top-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dc-top-row b {
+  color: #ffd166;
+  white-space: nowrap;
 }

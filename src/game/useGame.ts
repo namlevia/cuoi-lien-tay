@@ -106,6 +106,7 @@ export function useGame() {
   const [dark, setDark] = useState(false);
   const [pk, setPk] = useState<{ until: number; atk: number; def: number; atkName: string; defName: string } | null>(null);
   const [parents, setParents] = useState<{ groom: string; bride: string } | null>(null);
+  const [top, setTop] = useState<{ id: string; name: string; coins: number }[]>([]);
   const likeBase = useRef<number | null>(null);
   const avatars = useRef(new Map<string, string>());
   const names = useRef(new Map<string, string>()); // id -> tên hiển thị (đã che từ bậy)
@@ -151,6 +152,7 @@ export function useGame() {
     pk: null as null | Pk,
     bless: new Map<string, number>(), // xu chúc phúc trong đám hiện tại
     parents: [null, null] as [string | null, string | null], // [phụ huynh nhà trai, nhà gái]
+    giftTotal: new Map<string, number>(), // tổng xu mỗi người cả buổi live (bảng Top đại gia, chỉ tính quà)
     djPending: false, // có quà / tim gọi nhảy lúc đang cưới: nhảy sau khi cưới xong
     chatterGap: GAME.chatterQuietMs,
   }));
@@ -798,6 +800,14 @@ export function useGame() {
         pkAtk = true;
       }
       if (!pkAtk) bless(id, coins);
+      // bảng Top đại gia mừng cưới (góc dưới phải): 7 người tặng nhiều xu nhất cả buổi
+      s.giftTotal.set(id, (s.giftTotal.get(id) ?? 0) + coins);
+      setTop(
+        [...s.giftTotal.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 7)
+          .map(([x, c]) => ({ id: x, name: shown(x), coins: c })),
+      );
       if (s.duyen && !s.duyen.maker && Date.now() < s.duyen.until && world.has(id)) {
         s.duyen.maker = id;
         world.matchmaker(id);
@@ -1137,7 +1147,7 @@ export function useGame() {
     return () => clearTimeout(t);
   }, [lastGift]);
 
-  return { status, channelName, lastGift, likeProgress, likeNext, guestCount, view, queueLen, married, duyen, nguyen, stageCount, vote, dark, pk, parents };
+  return { status, channelName, lastGift, likeProgress, likeNext, guestCount, view, queueLen, married, duyen, nguyen, stageCount, vote, dark, pk, parents, top };
 }
 
 export type GameState = ReturnType<typeof useGame>;
