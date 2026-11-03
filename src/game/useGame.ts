@@ -4,15 +4,26 @@ import type { GiftEvent, LiveStatus } from '../live/types';
 import { voice, speakableName } from '../live/voice';
 import { containsBanned, maskBanned } from '../live/bannedWords';
 import { NameBatcher } from '../live/scoreboard';
-import { GiftThanker, makePicker, OncePerPerson, RecentPeople } from '../live/chatter';
+import { GiftThanker, OncePerPerson, RecentPeople } from '../live/chatter';
+import { NGUYEN, type Nguyen } from './seDuyen';
 import { IS_STAGE } from '../live/page';
 import { GAME } from './config';
-import { matchName, other, parseCommand, pickRole, type Role } from './rules';
+import { exactName, matchName, namePrefixes, other, parseCommand, pickRole, type Role } from './rules';
 import { pickWeddingSet } from './world/chibi3d';
 import { world } from './world/world';
 import { music } from './music';
 
-const pick = makePicker();
+// Bốc kiểu "rút bài": đọc hết 1 vòng mới lặp lại, để giọng MC không bị nhắc lại câu cũ
+const bags = new Map<readonly unknown[], number[]>();
+function pick<T>(list: readonly T[]): T | undefined {
+  if (!list.length) return undefined;
+  let bag = bags.get(list);
+  if (!bag?.length) {
+    bag = list.map((_, i) => i).sort(() => Math.random() - 0.5);
+    bags.set(list, bag);
+  }
+  return list[bag.pop()!];
+}
 
 export type Phase = 'idle' | 'proposal' | 'walk' | 'vows' | 'after';
 
@@ -63,6 +74,8 @@ export function useGame() {
   const [view, setView] = useState<WeddingView | null>(null);
   const [queueLen, setQueueLen] = useState(0);
   const [married, setMarried] = useState(0);
+  const [duyen, setDuyen] = useState<{ until: number; count: number } | null>(null);
+  const [nguyen, setNguyen] = useState<Nguyen | null>(null);
   const likeBase = useRef<number | null>(null);
   const avatars = useRef(new Map<string, string>());
   const names = useRef(new Map<string, string>()); // id -> tên hiển thị (đã che từ bậy)
@@ -87,6 +100,11 @@ export function useGame() {
     nudgeLimit: limiter(15_000),
     stealLowLimit: limiter(10_000),
     lastPair: Date.now() - 30_000,
+    duyen: null as null | { ids: Set<string>; until: number; said: number; maker: string | null },
+    fightLimit: limiter(25_000),
+    actLimit: limiter(6_000),
+    crewLimit: limiter(45_000),
+    lastDuyen: Date.now() - GAME.duyen.everyMs + 90_000, // lần đầu sau ~1,5 phút
   }));
 
   const safeName = (nickname: string, username: string) => (containsBanned(nickname) ? username : nickname);
@@ -121,7 +139,14 @@ export function useGame() {
   };
 
   /** tìm người đang trong tiệc theo tên được @ */
-  const findGuest = (typed: string) => world.ids().find((id) => matchName(typed, shown(id), id)) ?? null;
+  // tên dài khớp trước: "@Lan Anh" chọn Lan Anh dù phòng có cả Lan
+  const findGuest = (typed: string) => {
+    for (const t of namePrefixes(typed)) {
+      const id = world.ids().find((x) => exactName(t, shown(x), x));
+      if (id) return id;
+    }
+    return null;
+  };
 
   // ---------- cầu hôn ----------
   const propose = (p: Pending) => {
@@ -166,11 +191,12 @@ export function useGame() {
     const b = spoken(w.ids[other(w.stealRole)]);
     voice.say(pick(GAME.accepted)!(a, b), true, undefined, true, () => {
       world.cannons();
+      world.dance(9000);
       world.confetti(160);
       world.heartsRain(60);
     });
     voice.say(set.rare ? GAME.outfitFunny : GAME.outfit(set.name), false, undefined, true);
-    voice.say(pick(GAME.walk)!(spoken(w.ids.groom), spoken(w.ids.bride)), false, undefined, true);
+    voice.say(pick(GAME.walk)!(spoken(w.ids.groom), spoken(w.ids.bride)), false, undefined, true, () => world.smokeBurst(20, 'aisle'));
     voice.say(GAME.walkSteal(GAME.stealMin));
     sync();
   };
@@ -200,7 +226,11 @@ export function useGame() {
     const V = GAME.vows[s.vowsNo++ % GAME.vows.length];
     const keep = true;
     const st = () => world.look('stage', 60_000);
-    voice.say(V.open(g, b), false, undefined, keep, st);
+    voice.say(V.open(g, b), false, undefined, keep, () => {
+      st();
+      world.fountains(7000);
+      world.smokeBurst(16);
+    });
     voice.say(V.promiseG(g), false, undefined, keep, () => w.ids.groom && world.look(w.ids.groom, 6000));
     voice.say(V.promiseB(b), false, undefined, keep, () => w.ids.bride && world.look(w.ids.bride, 6000));
     voice.say(GAME.ring, false, () => world.ringExchange(), keep, st);
@@ -208,6 +238,7 @@ export function useGame() {
     voice.say(GAME.toast, false, undefined, keep, () => {
       world.partyAll(9000);
       world.cannons();
+      world.fountains(8000);
       world.confetti(200);
       world.fireworks(4);
     });
@@ -231,6 +262,61 @@ export function useGame() {
     setTimeout(() => s.w?.phase === 'after' && world.setBaseCamera('wide'), 15_000);
     sync();
     setTimeout(nextInQueue, 5000);
+  };
+
+  // ---------- Nguyệt Lão se duyên ----------
+  const startDuyen = () => {
+    if (s.duyen || (s.w && s.w.phase !== 'after')) return;
+    s.lastDuyen = Date.now();
+    const until = Date.now() + GAME.duyen.windowMs;
+    s.duyen = { ids: new Set(), until, said: 0, maker: null };
+    setDuyen({ until, count: 0 });
+    world.nguyetLao(true);
+    world.fountains(3000);
+    voice.say(pick(GAME.duyen.intro)!, true, undefined, false, () => world.look('stage', 6000));
+    setTimeout(endDuyen, GAME.duyen.windowMs);
+  };
+
+  const endDuyen = () => {
+    const d = s.duyen;
+    if (!d) return;
+    setDuyen(null);
+    const busy = new Set([s.w?.ids.groom, s.w?.ids.bride, d.maker].filter(Boolean));
+    const ids = [...d.ids].filter((id) => world.has(id) && !busy.has(id)).sort(() => Math.random() - 0.5);
+    const close = () => {
+      s.duyen = null;
+      world.nguyetLao(false);
+      world.matchmaker(null);
+      setNguyen(null);
+    };
+    if (!ids.length) {
+      voice.say(pick(GAME.duyen.none)!, false, close);
+      return;
+    }
+    const n = pick(NGUYEN)!;
+    voice.say(pick(GAME.duyen.before)!, false, undefined, true, () => world.look('stage', 8000));
+    voice.say(`F: ${n.ten}. | F: ${n.loi}`, false, undefined, true, () => {
+      setNguyen(n);
+      world.petals(160);
+      world.smokeBurst(12);
+    });
+    if (ids.length === 1) {
+      voice.say(GAME.duyen.single(spoken(ids[0])), false, close, true, () => world.look(ids[0], 6000));
+      return;
+    }
+    const [a, b] = ids;
+    const pairLine = d.maker && world.has(d.maker) ? pick(GAME.pairBy)!(spoken(d.maker), spoken(a), spoken(b)) : pick(GAME.duyen.pair)!(spoken(a), spoken(b));
+    voice.say(pairLine, false, close, true, () => {
+      setNguyen(null);
+      world.redThread(a, b, 40_000);
+      world.cheerPair(a, b, 8000);
+      world.fountains(5000);
+      const pa = world.posOf(a);
+      const pb = world.posOf(b);
+      if (pa && pb) world.lookPoint(pa.add(pb).multiplyScalar(0.5), 9000);
+      world.setTitle(a, { text: GAME.titleThread(cut(shown(b), 10)), gold: true });
+      world.setTitle(b, { text: GAME.titleThread(cut(shown(a), 10)), gold: true });
+    });
   };
 
   const nextInQueue = () => {
@@ -285,6 +371,11 @@ export function useGame() {
     voice.onSpeaker = (who) => world.setSpeaker(who);
     world.events = {
       coupleOnStage: runVows,
+      fight: (a, b, table) => {
+        if (!s.fightLimit('all') || voice.waiting > 1) return;
+        if (a && b) voice.say(pick(GAME.fight)!(spoken(a), spoken(b)), false, undefined, false, () => world.look(b, 4000));
+        else voice.say(pick(GAME.fightTable)!(table));
+      },
     };
     return () => {
       world.events = {};
@@ -325,6 +416,42 @@ export function useGame() {
         world.say(id, '🙅 Không!', 4000);
         return endProposal('no');
       }
+      if (cmd?.type === 'punch' || cmd?.type === 'tease') {
+        const target = findGuest(cmd.target);
+        if (!target || target === id) {
+          world.say(id, maskBanned(e.comment));
+          if (!target && s.actLimit('missing')) voice.say(GAME.noTarget(speakableName(cmd.target)));
+          return;
+        }
+        if (!world.attack(id, target, cmd.type === 'punch' ? 'punch' : 'poke')) return;
+        world.say(id, cmd.type === 'punch' ? '👊 Đứng lại đó!' : '😜 Ê ê!', 2500);
+        if (s.actLimit('all')) {
+          const lines = cmd.type === 'punch' ? GAME.fight : GAME.tease;
+          setTimeout(() => voice.say(pick(lines)!(spoken(id), spoken(target)), false, undefined, false, () => world.look(target, 4500)), 1500);
+        }
+        return;
+      }
+      if (cmd?.type === 'dance') {
+        world.joinDance(id);
+        world.say(id, '💃 Quẩy!', 2500);
+        if (s.actLimit('dance')) voice.say(pick(GAME.danceJoin)!(spoken(id)));
+        return;
+      }
+      if (cmd?.type === 'duyen') {
+        const d = s.duyen;
+        if (!d || Date.now() > d.until) return void world.say(id, maskBanned(e.comment));
+        if (d.ids.has(id)) return;
+        d.ids.add(id);
+        world.say(id, pick(GAME.duyen.bubble)!, 4000);
+        world.heartsAt(id, 12);
+        setDuyen({ until: d.until, count: d.ids.size });
+        const marks = [3, 6, 10, 20];
+        if (marks.includes(d.ids.size) && d.said < marks.length) {
+          d.said++;
+          voice.say(pick(GAME.duyen.count)!(d.ids.size));
+        }
+        return;
+      }
       if (cmd?.type === 'zo') {
         world.zo(id);
         world.say(id, '🥂 Zô!', 2500);
@@ -344,8 +471,21 @@ export function useGame() {
       const coins = e.diamondCount * e.repeatCount;
       setLastGift({ ...e, nickname: name, coins });
       if (trySteal(id, coins)) return;
+      if (s.duyen && !s.duyen.maker && Date.now() < s.duyen.until && world.has(id)) {
+        s.duyen.maker = id;
+        world.matchmaker(id);
+        voice.say(pick(GAME.matchmaker)!(speakableName(name)), true);
+      }
 
       const tier = GAME.giftTiers.find((t) => coins >= t.min) ?? GAME.giftTiers[GAME.giftTiers.length - 1];
+      // quà nào cũng bay từ người tặng lên sân khấu; quà to thêm pháo sáng + khói
+      world.giftTrail(id, coins >= 99 ? 120 : coins >= 10 ? 70 : 40);
+      if (coins >= 10) world.fountains(coins >= 99 ? 8000 : 4000);
+      if (coins >= 30) {
+        world.dance(coins >= 99 ? 10000 : 6000);
+        if (s.crewLimit('all')) voice.say(pick(GAME.danceCrew)!);
+      }
+      if (coins >= 30) world.smokeBurst(coins >= 299 ? 30 : 14, coins >= 299 ? 'hall' : 'stage');
       for (const fx of tier.fx) {
         if (fx === 'hearts') world.heartsAt(id, coins >= 30 ? 40 : 16);
         if (fx === 'confetti') world.confetti(coins >= 99 ? 260 : 140);
@@ -388,11 +528,19 @@ export function useGame() {
         sync();
       }
       if (c.action === 'custom' && c.text === 'party') world.partyAll(10000);
+      if (c.action === 'custom' && c.text === 'duyen') startDuyen();
       if (!IS_STAGE) return; // chỉ trang stage làm theo lệnh có tiếng, tránh 2 giọng
       if (c.action === 'speak' && c.text) voice.say(c.text, true);
       if (c.action === 'custom' && (c.text === 'music:on' || c.text === 'music:off')) music.set(c.text === 'music:on');
       if (c.action === 'custom' && c.text?.startsWith('musicVol:')) music.setLevel(Number(c.text.slice(9)) / 100);
-      if (c.action === 'setRate' && c.text) voice.rate = Number(c.text) || 1;
+      if (c.action === 'setRate' && c.text) {
+        voice.rate = Math.min(1.5, Math.max(0.5, Number(c.text) || 1.25));
+        try {
+          localStorage.setItem('voice-rate', String(voice.rate));
+        } catch {
+          // bỏ qua
+        }
+      }
       if (c.action === 'reset') {
         voice.stop();
         s.greeter.reset();
@@ -445,11 +593,19 @@ export function useGame() {
         }
       }, 1000),
     );
+    // Nguyệt Lão định kỳ xuống se duyên lúc không có đám
+    timers.push(
+      setInterval(() => {
+        const ph = s.w?.phase;
+        if (s.duyen || (ph && ph !== 'after') || Date.now() - s.lastDuyen < GAME.duyen.everyMs || world.count < 2) return;
+        startDuyen();
+      }, 5000),
+    );
     // Mai mối: thỉnh thoảng zoom vào 1 bàn, MC gọi 2 bạn lên cưới
     timers.push(
       setInterval(() => {
         const ph = s.w?.phase;
-        if ((ph && ph !== 'after') || Date.now() - s.lastPair < GAME.pairEveryMs || voice.waiting > 1) return;
+        if (s.duyen || (ph && ph !== 'after') || Date.now() - s.lastPair < GAME.pairEveryMs || voice.waiting > 1) return;
         const p = world.pickPair();
         if (!p) return;
         s.lastPair = Date.now() + Math.random() * 20_000; // lệch nhịp cho tự nhiên
@@ -492,7 +648,7 @@ export function useGame() {
     return () => clearTimeout(t);
   }, [lastGift]);
 
-  return { status, channelName, lastGift, likeProgress, guestCount, view, queueLen, married };
+  return { status, channelName, lastGift, likeProgress, guestCount, view, queueLen, married, duyen, nguyen };
 }
 
 export type GameState = ReturnType<typeof useGame>;

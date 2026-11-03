@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { hash } from './tags';
 
 export type Body = 'suit' | 'shirt' | 'dress' | 'aodaiM' | 'aodaiF' | 'gown' | 'princess' | 'mermaid' | 'shortGown' | 'shorts';
-export type Hat = 'none' | 'veil' | 'tiara' | 'veilTiara' | 'khanVan' | 'khanXep';
+export type Hat = 'none' | 'veil' | 'tiara' | 'veilTiara' | 'khanVan' | 'khanXep' | 'headphones' | 'cap' | 'bun';
 
 export interface Look {
   body: Body;
@@ -16,6 +16,8 @@ export interface Look {
   longHair: boolean;
   hat: Hat;
   flower?: boolean; // hoa cài áo chú rể
+  beard?: boolean; // râu bạc (Nguyệt Lão)
+  age?: 'kid' | 'old'; // trẻ con (người nhỏ) / bà cụ (lưng còng)
 }
 
 // ---------- 6 bộ đồ cưới, mỗi cặp bốc 1 bộ ----------
@@ -66,8 +68,8 @@ export function pickWeddingSet(): WeddingSet {
   return WEDDING_SETS[Math.floor(Math.random() * 5)];
 }
 
-const SKINS = ['#ffe0c7', '#f9d2b0', '#f1c19a', '#e8b48a', '#ffd9c0'];
-const HAIRS = ['#1b1512', '#2b1d16', '#3a2618', '#1b1512', '#24180f'];
+const SKINS = ['#ffe4cf', '#fbd9bd', '#f5cdaa', '#f9dcc4', '#efc6a2'];
+const HAIRS = ['#141010', '#1b1512', '#2b1d16', '#141010', '#3a2618'];
 const DYED = ['#d6332f', '#f08a24', '#f2c94c', '#f4f4f4', '#f49ab2', '#8a6cff'];
 const CLOTHES = ['#f49ab2', '#7ec8e3', '#ffd166', '#06d6a0', '#ef476f', '#8338ec', '#ff9f1c', '#a7c957', '#e9edc9', '#90e0ef', '#ffafcc', '#cdb4db'];
 const PANTS = ['#2b2d42', '#3d405b', '#e9e4da', '#1d3557', '#6d6875'];
@@ -91,11 +93,27 @@ export function guestLook(id: string): Look {
   };
 }
 
+/** Khách đệm: thêm trẻ con và bà cụ cho rạp đời thường */
+export function npcLook(seed: string): Look {
+  const base = guestLook(seed);
+  const r = Math.random();
+  if (r < 0.14) return { ...base, age: 'kid', body: Math.random() < 0.5 ? 'shirt' : 'dress', hair: HAIRS[0], longHair: Math.random() < 0.4 };
+  if (r < 0.26)
+    return { ...base, age: 'old', body: 'aodaiF', main: ['#7b4b94', '#8d5a3b', '#4f6d7a', '#a14a5b'][Math.floor(Math.random() * 4)], pants: '#2b2b2b', hair: '#d9d9d9', longHair: false, hat: 'bun' };
+  return base;
+}
+
+/** trẻ con nhỏ người hơn */
+export const ageScale = (l: Look) => (l.age === 'kid' ? 0.72 : 1);
+
 export function weddingLook(base: Look, part: Partial<Look>): Look {
   return { ...base, pants: '#ffffff', shoes: '#f4f4f4', hat: 'none', ...part, longHair: part.longHair ?? base.longHair };
 }
 
 // ---------- vật liệu + khối dùng chung (tiết kiệm bộ nhớ) ----------
+const LEG = 0.46; // chiều cao hông
+const SEAT = 0.48; // mặt ghế
+
 const mats = new Map<string, THREE.MeshLambertMaterial>();
 export function mat(color: string, opacity = 1) {
   const k = color + opacity;
@@ -110,13 +128,13 @@ export function mat(color: string, opacity = 1) {
 const G = {
   head: new THREE.SphereGeometry(0.27, 20, 14),
   hair: new THREE.SphereGeometry(0.285, 20, 10, 0, Math.PI * 2, 0, Math.PI * 0.55),
-  longHair: new THREE.CylinderGeometry(0.21, 0.25, 0.42, 14),
+  longHair: new THREE.CylinderGeometry(0.21, 0.24, 0.62, 14),
   eye: new THREE.SphereGeometry(0.038, 8, 6),
   smile: new THREE.TorusGeometry(0.045, 0.012, 4, 10, Math.PI),
   cheek: new THREE.CircleGeometry(0.04, 10),
-  arm: new THREE.CapsuleGeometry(0.052, 0.2, 4, 8),
+  arm: new THREE.CapsuleGeometry(0.045, 0.3, 4, 8),
   hand: new THREE.SphereGeometry(0.058, 8, 6),
-  leg: new THREE.CylinderGeometry(0.07, 0.065, 0.26, 8),
+  leg: new THREE.CylinderGeometry(0.062, 0.05, LEG - 0.03, 8),
   shoe: new THREE.BoxGeometry(0.11, 0.06, 0.17),
   torso: new THREE.CylinderGeometry(0.16, 0.2, 0.42, 14),
   shirtFront: new THREE.BoxGeometry(0.1, 0.24, 0.02),
@@ -134,11 +152,18 @@ const G = {
   dress: new THREE.CylinderGeometry(0.14, 0.3, 0.46, 14),
   shortsPants: new THREE.CylinderGeometry(0.2, 0.21, 0.13, 12),
   belt: new THREE.TorusGeometry(0.16, 0.025, 6, 16),
-  veil: new THREE.CylinderGeometry(0.1, 0.42, 0.85, 16, 1, true),
+  veil: new THREE.CylinderGeometry(0.1, 0.45, 1.15, 16, 1, true),
   tiara: new THREE.TorusGeometry(0.13, 0.022, 6, 14, Math.PI),
   khanVan: new THREE.TorusGeometry(0.24, 0.065, 8, 18),
   khanXep: new THREE.CylinderGeometry(0.28, 0.28, 0.11, 18),
   mic: new THREE.CylinderGeometry(0.025, 0.02, 0.16, 6),
+  trayDisc: new THREE.CylinderGeometry(0.2, 0.2, 0.02, 14),
+  dome: new THREE.SphereGeometry(0.13, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2),
+  phones: new THREE.TorusGeometry(0.29, 0.035, 6, 16, Math.PI),
+  earCup: new THREE.CylinderGeometry(0.08, 0.08, 0.06, 10),
+  cap: new THREE.SphereGeometry(0.29, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.45),
+  bun: new THREE.SphereGeometry(0.12, 10, 8),
+  beard: new THREE.ConeGeometry(0.16, 0.42, 10),
   glass: new THREE.CylinderGeometry(0.05, 0.035, 0.14, 8),
   bouquet: new THREE.SphereGeometry(0.1, 8, 6),
   ring: new THREE.TorusGeometry(0.06, 0.015, 6, 14),
@@ -150,13 +175,21 @@ const mesh = (g: THREE.BufferGeometry, color: string, x = 0, y = 0, z = 0, opaci
   return m;
 };
 
+// đĩa tai nghe dựng đứng hai bên đầu
+const flat2 = (m: THREE.Mesh) => {
+  m.rotation.z = Math.PI / 2;
+  return m;
+};
+
 // vòng (thắt lưng) nằm ngang quanh eo
 const flat = (m: THREE.Mesh) => {
   m.rotation.x = Math.PI / 2;
   return m;
 };
 
-export type Pose = 'stand' | 'walk' | 'sit' | 'cheer' | 'zo' | 'dance' | 'kneel' | 'cry' | 'fall' | 'talk' | 'hug' | 'wave';
+export type Pose =
+  | 'stand' | 'walk' | 'sit' | 'cheer' | 'zo' | 'dance' | 'kneel' | 'cry' | 'fall' | 'talk' | 'hug' | 'wave'
+  | 'poke' | 'punch' | 'hit' | 'laugh' | 'carry' | 'dj' | 'flip' | 'spin' | 'jump';
 
 /** 1 nhân vật. `root` đặt trên sàn, quay mặt theo +z khi rotation.y = 0 */
 export class Chibi {
@@ -168,20 +201,28 @@ export class Chibi {
   private armR = new THREE.Group();
   private legL = new THREE.Group();
   private legR = new THREE.Group();
-  private prop: THREE.Mesh | null = null;
+  private prop: THREE.Object3D | null = null;
   look: Look;
   pose: Pose = 'stand';
   private phase = Math.random() * 10;
 
-  constructor(look: Look, scale = 1) {
+  private scale: number;
+  lean = 1; // trêu / đấm về phía nào (+1 phải, -1 trái)
+  seated = false; // đang ngồi ghế (world cập nhật mỗi khung hình)
+
+  constructor(look: Look, scale = 1.1) {
     this.look = look;
+    scale *= ageScale(look);
+    this.scale = scale;
     this.root.scale.setScalar(scale);
     this.root.add(this.body);
     this.body.add(this.outfit, this.head, this.armL, this.armR, this.legL, this.legR);
-    this.armL.position.set(-0.21, 0.64, 0);
-    this.armR.position.set(0.21, 0.64, 0);
-    this.legL.position.set(-0.08, 0.27, 0);
-    this.legR.position.set(0.08, 0.27, 0);
+    // dáng cao thon kiểu châu Á: chân dài, đầu nhỏ lại, áo kéo dài theo
+    this.armL.position.set(-0.185, 0.87, 0);
+    this.armR.position.set(0.185, 0.87, 0);
+    this.legL.position.set(-0.075, LEG, 0);
+    this.legR.position.set(0.075, LEG, 0);
+    this.head.scale.setScalar(0.8);
     this.build();
   }
 
@@ -193,18 +234,27 @@ export class Chibi {
   }
 
   /** cầm đồ trên tay phải: mic, ly, hoa cưới, nhẫn */
-  hold(what: 'mic' | 'glass' | 'bouquet' | 'ring' | null) {
-    if (this.prop) this.armR.remove(this.prop);
+  hold(what: 'mic' | 'glass' | 'bouquet' | 'ring' | 'tray' | null) {
+    if (this.prop) this.prop.removeFromParent();
     this.prop = null;
     if (!what) return;
+    if (what === 'tray') {
+      // mâm bưng trước ngực (gắn vào thân, không theo tay)
+      const t = new THREE.Group();
+      t.add(mesh(G.trayDisc, '#dfe3ea'), mesh(G.dome, '#e9edf2', 0, 0.01, 0));
+      t.position.set(0, 0.86, 0.32);
+      this.body.add(t);
+      this.prop = t;
+      return;
+    }
     const p =
       what === 'mic'
-        ? mesh(G.mic, '#222222', 0, -0.3, 0.06)
+        ? mesh(G.mic, '#222222', 0, -0.4, 0.06)
         : what === 'glass'
-          ? mesh(G.glass, '#fff2b3', 0, -0.33, 0.04, 0.85)
+          ? mesh(G.glass, '#fff2b3', 0, -0.42, 0.04, 0.85)
           : what === 'bouquet'
-            ? mesh(G.bouquet, '#ff6b8b', 0, -0.33, 0.06)
-            : mesh(G.ring, '#f6c453', 0, -0.33, 0.06);
+            ? mesh(G.bouquet, '#ff6b8b', 0, -0.42, 0.06)
+            : mesh(G.ring, '#f6c453', 0, -0.42, 0.06);
     this.armR.add(p);
     this.prop = p;
   }
@@ -213,12 +263,20 @@ export class Chibi {
     const L = this.look;
     const o = this.outfit;
     const long = ['gown', 'princess', 'mermaid'].includes(L.body); // váy dài che chân
+    // áo vẽ theo dáng cũ (hông 0.27) rồi kéo dãn lên dáng mới (hông LEG), thon lại theo chiều ngang
+    if (long) {
+      o.scale.set(0.86, 1.25, 0.86);
+      o.position.y = 0;
+    } else {
+      o.scale.set(0.86, 1.15, 0.86);
+      o.position.y = LEG - 0.27 * 1.15;
+    }
     // chân
     for (const leg of [this.legL, this.legR]) {
       if (long) continue;
       const bare = L.body === 'shorts' || L.body === 'shortGown' || L.body === 'dress';
-      leg.add(mesh(G.leg, bare ? L.skin : L.pants, 0, -0.13, 0));
-      leg.add(mesh(G.shoe, L.shoes, 0, -0.25, 0.03));
+      leg.add(mesh(G.leg, bare ? L.skin : L.pants, 0, -(LEG - 0.03) / 2, 0));
+      leg.add(mesh(G.shoe, L.shoes, 0, -LEG + 0.03, 0.03));
     }
     let sleeve = L.main;
     switch (L.body) {
@@ -272,12 +330,12 @@ export class Chibi {
     if (['gown', 'princess', 'mermaid', 'shortGown', 'dress'].includes(L.body)) sleeve = L.skin;
     // tay
     for (const arm of [this.armL, this.armR]) {
-      arm.add(mesh(G.arm, sleeve, 0, -0.14, 0));
-      arm.add(mesh(G.hand, L.skin, 0, -0.29, 0));
+      arm.add(mesh(G.arm, sleeve, 0, -0.19, 0));
+      arm.add(mesh(G.hand, L.skin, 0, -0.38, 0));
     }
     // đầu
     const h = this.head;
-    h.position.y = 0.98;
+    h.position.y = 1.2;
     h.add(mesh(G.head, L.skin));
     const hair = mesh(G.hair, L.hair, 0, 0.03, -0.02);
     hair.rotation.x = -0.35;
@@ -309,6 +367,17 @@ export class Chibi {
       h.add(k);
     }
     if (L.hat === 'khanXep') h.add(mesh(G.khanXep, L.main, 0, 0.2, -0.01));
+    if (L.hat === 'headphones') {
+      h.add(mesh(G.phones, '#1a1a1a', 0, 0.02, 0));
+      h.add(flat2(mesh(G.earCup, '#ff2d55', -0.28, -0.02, 0)), flat2(mesh(G.earCup, '#ff2d55', 0.28, -0.02, 0)));
+    }
+    if (L.hat === 'cap') h.add(mesh(G.cap, L.accent, 0, 0.04, 0.01));
+    if (L.hat === 'bun') h.add(mesh(G.bun, L.hair, 0, 0.2, -0.2));
+    if (L.beard) {
+      const bd = mesh(G.beard, '#f4f4f4', 0, -0.3, 0.12);
+      bd.rotation.x = Math.PI;
+      h.add(bd);
+    }
   }
 
   /** gọi mỗi khung hình */
@@ -316,7 +385,7 @@ export class Chibi {
     const p = this.phase + t;
     const b = this.body;
     let pose: Pose = this.pose;
-    if (moving && pose !== 'fall') pose = 'walk';
+    if (moving && pose !== 'fall' && pose !== 'carry') pose = 'walk';
     b.position.set(0, 0, 0);
     b.rotation.set(0, 0, 0);
     this.head.rotation.set(0, 0, 0);
@@ -338,7 +407,7 @@ export class Chibi {
         this.legR.rotation.x = sw * 0.55;
         break;
       case 'sit':
-        b.position.y = 0.2;
+        b.position.y = SEAT / this.scale - LEG;
         this.legL.rotation.x = -1.35;
         this.legR.rotation.x = -1.35;
         this.head.rotation.z = Math.sin(p * 0.9) * 0.08;
@@ -346,7 +415,7 @@ export class Chibi {
         this.armR.rotation.x = -0.5;
         break;
       case 'zo':
-        b.position.y = 0.2;
+        b.position.y = SEAT / this.scale - LEG;
         this.legL.rotation.x = -1.35;
         this.legR.rotation.x = -1.35;
         this.armR.rotation.set(-2.6 + Math.sin(p * 6) * 0.15, 0, -0.2);
@@ -365,7 +434,7 @@ export class Chibi {
         this.armR.rotation.set(0, 0, -2.2 + Math.sin(p * 6) * 0.6);
         break;
       case 'kneel':
-        b.position.y = -0.14;
+        b.position.y = -LEG * 0.55;
         this.legL.rotation.x = -1.5;
         this.legR.rotation.x = 0.2;
         this.armR.rotation.set(-1.4, 0, 0);
@@ -401,6 +470,85 @@ export class Chibi {
         b.position.y = Math.abs(Math.sin(p * 3)) * 0.03;
         this.armR.rotation.set(0, 0, -2.6 + Math.sin(p * 9) * 0.35);
         break;
+      // trêu nhau ở bàn (đang ngồi): chọc, đấm, bị đấm, cười
+      case 'poke':
+        this.sitBase();
+        b.rotation.y = this.lean * 0.6;
+        this.armR.rotation.set(-1.4 + Math.sin(p * 12) * 0.3, 0, -this.lean * 0.5);
+        break;
+      case 'punch': {
+        this.sitBase();
+        const j = Math.max(0, Math.sin(p * 10));
+        b.rotation.y = this.lean * 0.8;
+        b.rotation.z = -this.lean * j * 0.15;
+        this.armR.rotation.set(-1.55, 0, -this.lean * (0.3 + j * 0.9));
+        this.armL.rotation.set(-1.2, 0, 0.2);
+        break;
+      }
+      case 'hit':
+        this.sitBase();
+        b.rotation.z = this.lean * 0.45;
+        this.head.rotation.set(0.2, Math.sin(p * 20) * 0.5, this.lean * 0.3);
+        this.armL.rotation.set(-2.4, 0, -0.4);
+        this.armR.rotation.set(-2.4, 0, 0.4);
+        break;
+      case 'laugh':
+        this.sitBase();
+        b.position.y += Math.abs(Math.sin(p * 16)) * 0.04;
+        this.head.rotation.x = -0.35 + Math.sin(p * 16) * 0.08;
+        this.armL.rotation.set(-0.9, 0, 0.3);
+        this.armR.rotation.set(-0.9, 0, -0.3);
+        break;
+      case 'carry':
+        this.armL.rotation.set(-1.45, 0, -0.25);
+        this.armR.rotation.set(-1.45, 0, 0.25);
+        if (moving) {
+          b.position.y = Math.abs(sw) * 0.04;
+          this.legL.rotation.x = -sw * 0.5;
+          this.legR.rotation.x = sw * 0.5;
+        }
+        break;
+      // đội nhảy bựa: lộn nhào, xoay như con quay, nhảy cao
+      case 'flip': {
+        const k = (p * 1.2) % 1;
+        b.position.y = Math.sin(k * Math.PI) * 0.9;
+        b.rotation.x = -k * Math.PI * 2;
+        this.armL.rotation.set(0, 0, 2.8);
+        this.armR.rotation.set(0, 0, -2.8);
+        break;
+      }
+      case 'spin':
+        b.rotation.y = p * 14;
+        b.position.y = Math.abs(Math.sin(p * 7)) * 0.1;
+        this.armL.rotation.set(0, 0, 1.5);
+        this.armR.rotation.set(0, 0, -1.5);
+        break;
+      case 'jump':
+        b.position.y = Math.abs(Math.sin(p * 5)) * 0.7;
+        this.armL.rotation.set(0, 0, 2.9);
+        this.armR.rotation.set(0, 0, -2.9);
+        this.legL.rotation.x = -Math.abs(Math.sin(p * 5)) * 0.8;
+        this.legR.rotation.x = Math.abs(Math.sin(p * 5)) * 0.8;
+        break;
+      case 'dj':
+        b.position.y = Math.abs(Math.sin(p * 8)) * 0.05;
+        this.head.rotation.x = Math.sin(p * 8) * 0.25;
+        this.armR.rotation.set(-1.3 + Math.sin(p * 8) * 0.3, 0, 0.2);
+        this.armL.rotation.set(-1.1, 0, Math.sin(p * 4) * 0.4 - 0.2);
+        break;
     }
+    if (this.look.age === 'old' && pose !== 'fall') b.rotation.x += 0.2; // lưng còng
+  }
+
+  private sitBase() {
+    if (!this.seated) return; // đứng đấm / trêu thì giữ dáng đứng
+    this.body.position.y = SEAT / this.scale - LEG;
+    this.legL.rotation.x = -1.35;
+    this.legR.rotation.x = -1.35;
+  }
+
+  /** cho đội nhảy nhảy đều tay nhau */
+  sync(phase = 0) {
+    this.phase = phase;
   }
 }

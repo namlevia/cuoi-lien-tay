@@ -155,8 +155,105 @@ export function buildHall(scene: THREE.Scene) {
       put('#5f8f4e', leaf, sx * (AISLE_HALF + 0.3) - 0.18, 0.95, z - 0.1);
     }
 
+  // ---------- sân khấu VIP: tường hoa, cột hoa, đèn chùm, chân nến, bánh cưới, tháp ly, loa, bàn DJ ----------
+  const fball = new THREE.SphereGeometry(0.17, 7, 5);
+  const FL = ['#ffffff', '#ffc2d1', '#ff8fab', '#ffe5ec', '#ffffff', '#f8f9fb'];
+  // tường hoa sau cổng (2 mảng hai bên phông chữ)
+  for (const sx of [-1, 1])
+    for (let i = 0; i < 160; i++) {
+      const x = sx * (5.2 + Math.random() * 3.6);
+      const y = STAGE_Y + Math.random() * 5.2;
+      put(FL[i % FL.length], fball, x, y, -26.9 + Math.random() * 0.2);
+      if (i % 4 === 0) put('#5f8f4e', leaf, x + 0.15, y + 0.1, -26.8);
+    }
+  // 2 cột hoa cao 2 bên cổng
+  for (const sx of [-1, 1]) {
+    put('#dfe3ea', new THREE.CylinderGeometry(0.28, 0.34, 0.5, 14), sx * 3.6, STAGE_Y + 0.25, -24.4);
+    put('#dfe3ea', new THREE.CylinderGeometry(0.1, 0.12, 2.6, 8), sx * 3.6, STAGE_Y + 1.6, -24.4);
+    for (let k = 0; k < 26; k++) {
+      const a = k * 2.4;
+      put(FL[k % FL.length], fball, sx * 3.6 + Math.sin(a) * 0.35, STAGE_Y + 2.9 + Math.cos(a) * 0.3 + (k % 5) * 0.06, -24.4 + Math.cos(a * 1.3) * 0.3);
+    }
+    put('#5f8f4e', leaf, sx * 3.6, STAGE_Y + 3.4, -24.4);
+  }
+  // chân nến bạc dọc mép sân khấu
+  for (const x of [-7.4, -5.2, 5.2, 7.4]) {
+    put('#dfe3ea', new THREE.CylinderGeometry(0.04, 0.12, 1.4, 8), x, STAGE_Y + 0.7, STAGE_FRONT - 0.4);
+    for (const dx of [-0.2, 0, 0.2]) put('#fff8e1', candle, x + dx, STAGE_Y + 1.5 + (dx ? 0 : 0.08), STAGE_FRONT - 0.4);
+  }
+  // bánh cưới 4 tầng (trái) + tháp ly (phải)
+  const cakeX = -5.6;
+  const cakeZ = -22;
+  put('#dfe3ea', new THREE.CylinderGeometry(0.55, 0.6, 0.7, 16), cakeX, STAGE_Y + 0.35, cakeZ);
+  ;[0.5, 0.4, 0.3, 0.2].forEach((r, i) => {
+    put('#ffffff', new THREE.CylinderGeometry(r, r, 0.26, 20), cakeX, STAGE_Y + 0.83 + i * 0.26, cakeZ);
+    put('#ffc2d1', new THREE.TorusGeometry(r, 0.025, 6, 20), cakeX, STAGE_Y + 0.71 + i * 0.26, cakeZ, 0, Math.PI / 2);
+  });
+  put('#ff4d6d', fball, cakeX, STAGE_Y + 1.88, cakeZ);
+  const glassGeo = new THREE.ConeGeometry(0.07, 0.14, 8);
+  put('#dfe3ea', new THREE.CylinderGeometry(0.55, 0.6, 0.7, 16), -cakeX, STAGE_Y + 0.35, cakeZ);
+  for (let lvl = 0; lvl < 4; lvl++) {
+    const n = (4 - lvl) * 4;
+    const rr = (4 - lvl) * 0.1;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2;
+      put('#fff3c4', glassGeo, -cakeX + Math.sin(a) * rr, STAGE_Y + 0.78 + lvl * 0.16, cakeZ + Math.cos(a) * rr, 0, Math.PI);
+    }
+  }
+  // loa thùng 2 bên sân khấu
+  const cone = new THREE.CylinderGeometry(0.22, 0.22, 0.04, 16);
+  for (const sx of [-1, 1]) {
+    put('#151515', new THREE.BoxGeometry(0.9, 2.2, 0.8), sx * 8.6, STAGE_Y + 1.1, -21.2);
+    put('#c4cad4', cone, sx * 8.6, STAGE_Y + 0.6, -20.79, 0, Math.PI / 2);
+    put('#c4cad4', cone, sx * 8.6, STAGE_Y + 1.5, -20.79, 0, Math.PI / 2);
+  }
+  // bàn DJ (sau bên phải sân khấu)
+  put('#101014', new THREE.BoxGeometry(1.8, 1.0, 0.8), 6.4, STAGE_Y + 0.5, -25.4);
+  for (const dx of [-0.45, 0.45]) put('#2a2a30', new THREE.CylinderGeometry(0.25, 0.25, 0.04, 18), 6.4 + dx, STAGE_Y + 1.02, -25.4);
+  // ống pháo giấy 2 góc sân khấu
+  for (const sx of [-1, 1]) {
+    put('#c4cad4', new THREE.CylinderGeometry(0.16, 0.2, 0.7, 10), sx * 7, STAGE_Y + 0.35, STAGE_FRONT - 0.6);
+    put('#ff4d6d', new THREE.TorusGeometry(0.17, 0.03, 6, 12), sx * 7, STAGE_Y + 0.7, STAGE_FRONT - 0.6, 0, Math.PI / 2);
+  }
+
   // gộp
   for (const [color, list] of parts) scene.add(new THREE.Mesh(mergeGeometries(list), mat(color)));
+
+  // dải LED đổi màu: mép sân khấu + mặt bàn DJ + khung phông chữ
+  const ledMat = new THREE.MeshBasicMaterial({ color: '#ff4d9d' });
+  const leds = [
+    new THREE.Mesh(new THREE.BoxGeometry(16.1, 0.05, 0.04), ledMat),
+    new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.08, 0.02), ledMat),
+    new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.06, 0.04), ledMat),
+    new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.06, 0.04), ledMat),
+  ];
+  leds[0].position.set(0, STAGE_Y - 0.15, STAGE_FRONT + 0.08);
+  leds[1].position.set(6.4, STAGE_Y + 0.5, -24.99);
+  leds[2].position.set(0, STAGE_Y + 6.85, -27.15);
+  leds[3].position.set(0, STAGE_Y + 2.35, -27.15);
+  scene.add(...leds);
+
+  // đèn chùm pha lê trên sân khấu
+  const chand = new THREE.Group();
+  const crystal = new THREE.MeshBasicMaterial({ color: '#f4f7ff' });
+  const ring1 = new THREE.Mesh(new THREE.TorusGeometry(1.1, 0.05, 6, 32), mat('#dfe3ea'));
+  ring1.rotation.x = Math.PI / 2;
+  chand.add(ring1);
+  const drop = new THREE.OctahedronGeometry(0.08);
+  for (let i = 0; i < 28; i++) {
+    const a = (i / 28) * Math.PI * 2;
+    const d = new THREE.Mesh(drop, crystal);
+    d.position.set(Math.sin(a) * 1.1, -0.25 - (i % 3) * 0.15, Math.cos(a) * 1.1);
+    chand.add(d);
+  }
+  for (let i = 0; i < 12; i++) {
+    const a = (i / 12) * Math.PI * 2;
+    const d = new THREE.Mesh(drop, crystal);
+    d.position.set(Math.sin(a) * 0.5, -0.6 - (i % 2) * 0.2, Math.cos(a) * 0.5);
+    chand.add(d);
+  }
+  chand.position.set(0, 7.6, STAGE_Z);
+  scene.add(chand);
 
   // rèm đèn sau sân khấu (đèn nháy li ti)
   const lights = new THREE.BufferGeometry();
@@ -201,5 +298,5 @@ export function buildHall(scene: THREE.Scene) {
   };
   setNames('', '');
 
-  return { setNames, fairy };
+  return { setNames, fairy, ledMat, chand };
 }

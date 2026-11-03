@@ -19,10 +19,10 @@ export function GameStage({ game }: { game: GameState }) {
   const [, tick] = useState(0);
   const v = game.view;
   useEffect(() => {
-    if (v?.phase !== 'proposal') return;
+    if (v?.phase !== 'proposal' && !game.duyen) return;
     const t = setInterval(() => tick((x) => x + 1), 500);
     return () => clearInterval(t);
-  }, [v?.phase]);
+  }, [v?.phase, !!game.duyen]);
   const left = v ? Math.max(0, Math.ceil((v.until - Date.now()) / 1000)) : 0;
   const likePct = Math.min(100, (game.likeProgress / GAME.likesPerBoost) * 100);
   const canSteal = v && (v.phase === 'proposal' || v.phase === 'walk');
@@ -87,10 +87,30 @@ export function GameStage({ game }: { game: GameState }) {
         <span className="dc-chip">💖 ĐỒNG Ý</span>
         <span className="dc-chip">🥂 ZÔ</span>
       </div>
+      <div className="dc-guide dc-guide2">
+        <span className="dc-chip">👊 ĐẤM @tên</span>
+        <span className="dc-chip">😜 TRÊU @tên</span>
+        <span className="dc-chip">💃 QUẨY</span>
+        <span className="dc-chip">🙏 SE DUYÊN</span>
+      </div>
 
       {canSteal && (
         <div className="dc-steal">
           🦹 Tặng <b>≥{v.price} xu</b> để {v.stealRole === 'groom' ? 'CƯỚP DÂU' : 'CƯỚP RỂ'}!
+        </div>
+      )}
+
+      {game.duyen && (
+        <div className="dc-steal dc-duyen">
+          🧧 Gõ <b>SE DUYÊN</b> · {Math.max(0, Math.ceil((game.duyen.until - Date.now()) / 1000))}s · {game.duyen.count} người
+        </div>
+      )}
+
+      {game.nguyen && (
+        <div key={game.nguyen.ten} className="dc-nguyen">
+          <div className="dc-nguyen-h">🧵 Nguyệt Lão se duyên</div>
+          <div className="dc-nguyen-ten">{game.nguyen.ten}</div>
+          <p>{game.nguyen.loi}</p>
         </div>
       )}
 

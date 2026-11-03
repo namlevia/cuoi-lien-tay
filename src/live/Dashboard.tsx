@@ -115,12 +115,7 @@ export function Dashboard({
               </Btn>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-slate-400">Tốc độ</span>
-              {['0.85', '1', '1.1', '1.25'].map((r) => (
-                <Btn key={r} tone="ghost" onClick={() => sendControl('setRate', r)}>
-                  {r}×
-                </Btn>
-              ))}
+              <RateSlider />
               <span className="ml-2 text-slate-400">Tên kênh</span>
               <input
                 className="w-32 rounded-lg bg-slate-800 px-2 py-1"
@@ -232,4 +227,31 @@ function localStorageSet(k: string, v: string) {
   } catch {
     // bỏ qua
   }
+}
+
+// Tốc độ giọng MC: kéo là gửi sang trang stage, stage nhớ mức đã chỉnh
+function RateSlider() {
+  const [rate, setRate] = useState(() => {
+    try {
+      return Number(localStorage.getItem('voice-rate')) || 1.25;
+    } catch {
+      return 1.25;
+    }
+  });
+  const change = (r: number) => {
+    setRate(r);
+    try {
+      localStorage.setItem('voice-rate', String(r));
+    } catch {
+      // bỏ qua
+    }
+    void sendControl('setRate', String(r));
+  };
+  return (
+    <label className="flex items-center gap-1.5 text-slate-400">
+      Tốc độ giọng
+      <input type="range" min={0.8} max={1.5} step={0.05} value={rate} onChange={(e) => change(Number(e.target.value))} className="w-28 accent-amber-500" />
+      <b className="w-10 text-slate-200">{rate.toFixed(2)}×</b>
+    </label>
+  );
 }

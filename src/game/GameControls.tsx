@@ -65,6 +65,7 @@ export function GameControls() {
       <Row label="Điều khiển">
         <B onClick={() => void sendControl('custom', 'clearStage')}>✖ Dọn sân khấu</B>
         <B onClick={() => void sendControl('custom', 'party')}>🎉 Cả sảnh quẩy</B>
+        <B onClick={() => void sendControl('custom', 'duyen')}>🧵 Nguyệt Lão se duyên</B>
         <B
           on={musicOn}
           onClick={() => {
@@ -121,6 +122,7 @@ export function GameControls() {
           🦹 Cưới rồi bị cướp (30 xu)
         </B>
         <B onClick={() => many(10, () => chat(anyone(), 'zô'))}>🥂 10 zô</B>
+        <B onClick={() => many(6, () => chat(anyone(), 'se duyên'))}>🙏 6 người se duyên</B>
       </Row>
       <Row label="Quà / tim">
         <B onClick={() => gift(anyone(), 1, 'Hoa hồng')}>🌹 1</B>

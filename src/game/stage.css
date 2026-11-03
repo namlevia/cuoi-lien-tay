@@ -209,10 +209,10 @@
   color: #c2415d;
 }
 
-/* Banner cướp dâu: đỏ, nhấp nháy, nằm dưới hàng hướng dẫn */
+/* Banner cướp dâu: đỏ, nhấp nháy, nằm dưới 2 hàng hướng dẫn */
 .dc-steal {
   position: absolute;
-  top: 470px;
+  top: 548px;
   left: 0;
   right: 0;
   margin: 0 auto;
@@ -247,4 +247,45 @@
 }
 .dc-queue-pill b {
   color: #c2415d;
+}
+
+/* Nguyệt Lão: banner đỏ + thẻ lời nguyện */
+.dc-duyen {
+  background: linear-gradient(90deg, #c8102e, #ff4d6d);
+}
+.dc-nguyen {
+  position: absolute;
+  top: 630px;
+  left: 120px;
+  right: 120px;
+  padding: 22px 30px 26px;
+  border-radius: 26px;
+  background: rgba(255, 250, 245, 0.95);
+  border: 4px solid #c8102e;
+  box-shadow: 0 14px 34px rgba(5, 10, 30, 0.45);
+  text-align: center;
+  animation: dc-card-in 0.6s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.dc-nguyen-h {
+  font-size: 26px;
+  font-weight: 800;
+  color: #c8102e;
+}
+.dc-nguyen-ten {
+  margin-top: 6px;
+  font-family: 'Dancing Script', cursive;
+  font-weight: 700;
+  font-size: 56px;
+  color: #c8102e;
+}
+.dc-nguyen p {
+  margin: 10px 0 0;
+  font-size: 28px;
+  line-height: 1.45;
+  color: #4a2a33;
+}
+
+.dc-guide2 {
+  top: 458px;
+  padding: 6px 14px;
 }

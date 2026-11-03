@@ -203,6 +203,92 @@ export const GAME = {
     (a: N, b: N) => `M: Hai bạn ${a} với ${b} còn ngại hả? | F: Ngại thì để MC hỏi giùm! | M: ^Cưới không? Cưới không? | F: Im lặng là đồng ý nha!`,
   ],
 
+  // ---------- Nguyệt Lão se duyên: mời gõ SE DUYÊN, hết giờ bốc 2 người buộc tơ hồng ----------
+  duyen: {
+    everyMs: 4 * 60_000,
+    windowMs: 30_000,
+    intro: [
+      `M: ^Bà con ơi, tới giờ se duyên rồi! | F: Nguyệt Lão vừa xuống trần, tay cầm cuộn chỉ đỏ dài cả cây số! | M: Ai độc thân thì gõ se duyên! Ba mươi giây thôi nha!`,
+      `F: Đèn mờ, khói lên... Nguyệt Lão xuất hiện! | M: ^Ai muốn có người yêu thì gõ se duyên ngay! | F: Gõ càng sớm, tơ hồng càng chắc!`,
+      `M: Thông báo khẩn! Nguyệt Lão đang phát tơ hồng miễn phí! | F: Số lượng có hạn! | M: ^Gõ se duyên! Nhanh tay lên bà con!`,
+      `F: Nguyệt Lão nói hôm nay ổng còn dư hai cuộn chỉ đỏ. | M: Ai gõ se duyên thì ổng buộc cho một đầu! | F: Đầu kia buộc vào ai thì... hên xui!`,
+      `M: ^Ông tơ bà nguyệt có mặt! | F: Ai đang ế, ai mới chia tay, ai thích thầm người ta, gõ se duyên đi! | M: Ế càng lâu càng được ưu tiên!`,
+      `F: Nguyệt Lão hỏi phòng này ai còn độc thân? | M: ^Gõ se duyên cho ổng đếm coi! | F: Đếm xong ổng se luôn, khỏi chờ tới tết!`,
+    ],
+    count: [
+      (n: number) => `M: ${n} người xin duyên rồi! | F: ^Thêm nữa! Thêm nữa!`,
+      (n: number) => `F: Đã có ${n} người! Nguyệt Lão cười tít mắt luôn! | M: ^Ai chưa gõ thì gõ lẹ!`,
+      (n: number) => `M: ${n} người ế đã lộ diện! | F: Phòng này hot quá trời!`,
+    ],
+    before: [
+      `M: Hết giờ! Nguyệt Lão gửi lời nguyện cho bà con.`,
+      `F: Mọi người im lặng một chút nha. Nguyệt Lão có đôi lời.`,
+      `M: Nhạc nhỏ lại... Nguyệt Lão bắt đầu se duyên.`,
+    ],
+    pair: [
+      (a: N, b: N) => `M: ^Và Nguyệt Lão đã quyết định! | M: Tơ hồng nối ${a} với ${b}! | F: ^Trời ơi duyên trời định! | M: ${a} ơi, gõ cưới, a còng, ${b} liền!`,
+      (a: N, b: N) => `F: Cuộn chỉ đỏ bay vèo qua hội trường... | F: ^Và dính vào ${a} với ${b}! | M: Nguyệt Lão buộc rồi là không gỡ được đâu nha! | F: ^Cưới thôi!`,
+      (a: N, b: N) => `M: Nguyệt Lão nheo mắt, lựa tới lựa lui... | M: ^Chọn ${a} và ${b}! | F: Ổng nói kiếp trước hai bạn là hàng xóm, kiếp này phải làm vợ chồng! | M: ^Cưới!`,
+      (a: N, b: N) => `F: ^Tơ hồng đã se! | F: ${a} và ${b}, nhìn sợi chỉ đỏ trên đầu đi! | M: Ai gõ cưới trước thì người đó chủ động! | F: Nhanh lên kẻo người khác cướp!`,
+      (a: N, b: N) => `M: Nguyệt Lão tuyên bố: ${a} với ${b} hợp tuổi, hợp mệnh, hợp cả khẩu vị ăn cỗ! | F: ^Còn chần chừ gì nữa! | M: Gõ cưới, a còng, tên người ta!`,
+      (a: N, b: N) => `F: ^Ối giời ơi! | F: ${a} với ${b} bị buộc chung một sợi chỉ mà cười tủm tỉm kìa! | M: Không nhầm đâu, duyên đó! | F: ^Pháo tay chúc mừng!`,
+      (a: N, b: N) => `M: Sợi chỉ đỏ này nối ${a} với ${b}! | F: Theo luật Nguyệt Lão, hai bạn có sáu mươi giây để cưới! | M: Không cưới là ^Nguyệt Lão giận!`,
+      (a: N, b: N) => `F: Nguyệt Lão thì thầm vào tai MC... | M: Ổng nói ${b} để ý ${a} lâu rồi mà ngại! | F: ^Thôi khỏi ngại! | M: Lên lễ đường luôn!`,
+    ],
+    single: (a: N) => `F: Mới có ${a} xin duyên thôi! | M: Nguyệt Lão buộc một đầu chỉ cho ${a} rồi, đầu kia còn trống! | F: Ai muốn nắm đầu dây còn lại thì gõ cưới, a còng, ${a}!`,
+    none: [
+      `M: Nguyệt Lão ngồi chờ mỏi lưng mà không ai xin duyên! | F: Phòng này toàn người có đôi hết rồi hả? | M: ^Không tin! Lát ổng quay lại hỏi tiếp!`,
+      `F: Không ai gõ se duyên luôn? | M: Nguyệt Lão cuộn chỉ đỏ lại, đi về buồn hiu! | F: Lát nữa ổng quay lại, nhớ gõ nha bà con!`,
+    ],
+    bubble: ['🙏 Xin duyên!', '🧧 Se cho con với', '💘 Con ế lâu rồi', '🙏 Nguyệt Lão ơi'],
+  },
+  titleThread: (partner: N) => `🧵 Tơ hồng với ${partner}`,
+  // người tặng quà lúc se duyên: lên sân khấu làm Nguyệt Lão
+  matchmaker: [
+    (a: N) => `M: ^${a} vừa tặng quà! | F: Vậy hôm nay ${a} lên làm Nguyệt Lão luôn! | M: Râu bạc, áo đỏ, quyền se duyên cả phòng! ^Lên sân khấu!`,
+    (a: N) => `F: ^Ối! ${a} chơi lớn! | M: Nguyệt Lão thật xin nghỉ phép, nhường ghế cho ${a}! | F: Ai được ${a} se duyên thì phải cưới nha!`,
+    (a: N) => `M: Thông báo! Nguyệt Lão hôm nay là ${a}! | F: Mới mọc râu ba giây mà nhìn uy tín ghê! | M: ^Vỗ tay cho Nguyệt Lão mới!`,
+  ],
+  pairBy: [
+    (m: N, a: N, b: N) => `F: Nguyệt Lão ${m} nhắm mắt... chỉ tay! | M: ^Trúng ${a} và ${b}! | F: Nguyệt Lão ${m} đã phán, cãi là xui ba năm! | M: Gõ cưới, a còng, tên người ta đi!`,
+    (m: N, a: N, b: N) => `M: Nguyệt Lão ${m} quăng cuộn chỉ đỏ... | F: ^Dính ${a} với ${b}! | M: Nguyệt Lão nghiệp dư mà ném chuẩn ghê! | F: Hai bạn cưới đi cho Nguyệt Lão ${m} có thành tích!`,
+    (m: N, a: N, b: N) => `F: Nguyệt Lão ${m} vuốt râu, suy nghĩ rất lâu... | M: Rồi chọn đại! ^${a} và ${b}! | F: Chọn đại mà trúng duyên thật đó nha!`,
+  ],
+
+  // ---------- Đánh nhau, trêu nhau (hài, MC bình luận như xem võ) ----------
+  fight: [
+    (a: N, b: N) => `M: ^Ê ê ê! | M: ${a} vừa đấm ${b} một phát! | F: Đi ăn cưới chứ không phải lên võ đài nha! | M: ^Trọng tài đâu!`,
+    (a: N, b: N) => `F: ^Trời ơi! ${a} với ${b} choảng nhau rồi! | M: Chắc giành cái đùi gà! | F: Bảo vệ ơi, ra can giùm!`,
+    (a: N, b: N) => `M: Tường thuật trực tiếp! ${a} tung cú đấm thẳng... | F: ^Trúng ${b}! | M: Một không! Ăn cưới mà như xem đấm bốc!`,
+    (a: N, b: N) => `F: ${b} ơi, bị ${a} đấm rồi kìa! | M: Đánh nhau ở đám cưới là điềm báo... ^sắp cưới nhau đó! | F: Ghét của nào trời trao của đó!`,
+    (a: N, b: N) => `M: ^Á à! ${a} ra tay rồi! | F: ${b} ôm đầu kêu mẹ! | M: Làm lành đi, gõ cưới, a còng, tên nhau là hết giận!`,
+    (a: N, b: N) => `F: MC xem lại pha quay chậm... | M: ${a} lấy đà, xoay người, ^bốp! | F: ${b} bay mất cái kẹp tóc! Đỉnh!`,
+  ],
+  fightTable: [
+    (n: number) => `M: ^Bàn số ${n} đánh nhau kìa! | F: Ăn cỗ mà như đi đánh trận! | M: Bình tĩnh, cỗ còn nhiều mà!`,
+    (n: number) => `F: Bàn ${n} có biến! | M: Hai ông khách tranh nhau miếng giò! | F: ^Nhân viên ơi, bưng thêm giò ra bàn ${n}!`,
+    (n: number) => `M: Bàn ${n} vừa có một pha võ thuật! | F: Đám cưới hay lò võ vậy trời!`,
+    (n: number) => `F: ^Ối giời! Bàn ${n} ai đó vừa ăn một cú cùi chỏ! | M: Chắc tại uống hơi nhiều nước ngọt!`,
+  ],
+  tease: [
+    (a: N, b: N) => `F: ${a} chạy qua chọc ${b} kìa! | M: Trêu nhau là thích nhau đó, MC nói rồi! | F: ^Cưới đi!`,
+    (a: N, b: N) => `M: ${a} vừa chọc lét ${b}! | F: ${b} cười không nhặt được mồm! | M: Hai đứa này có mùi tơ hồng!`,
+    (a: N, b: N) => `F: Ơ ${a} lại ghẹo ${b} nữa! | M: ^Ghẹo hoài là phải chịu trách nhiệm nha!`,
+  ],
+  noTarget: (b: N) => `M: ${b} là ai ta? Chưa thấy vào tiệc! | F: ${b} ơi comment một câu vào đây đi, có người tìm kìa!`,
+  danceJoin: [
+    (a: N) => `F: ${a} ra sàn quẩy rồi kìa! | M: ^Quẩy lên! | F: Nhảy như chưa từng được nhảy!`,
+    (a: N) => `M: ${a} vừa nhập hội đội nhảy! | F: Động tác hơi lạ nhưng nhiệt tình là được!`,
+    (a: N) => `F: ^Nhìn ${a} kìa! | M: Nhảy kiểu này là hết cứu, nhưng mà vui!`,
+  ],
+  danceCrew: [
+    `M: ^Đội nhảy đâu! Ra sân! | F: Các thanh niên nghiêm túc... ^lộn nhào! | M: Bà cụ cũng xoay vòng kìa trời!`,
+    `F: Đội nhảy lên sàn rồi bà con ơi! | M: Có em bé, có bà nội, có cả chú mặc váy cô dâu! | F: ^Đội hình không ai giống ai!`,
+    `M: Nhạc lên! | F: ^Đội nhảy quẩy tung nóc! | M: Anh quần đùi dép tổ ong nhảy xung nhất đội!`,
+    `F: Ai cũng nhảy đều, có một bạn lộn nhào không ai bảo! | M: ^Biên đạo ơi cứu!`,
+  ],
+
+
   // ---------- MC rảnh thì nói ----------
   chatter: {
     howTo: [

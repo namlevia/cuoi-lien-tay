@@ -26,7 +26,7 @@ class Voice {
   private playing = false;
   private current: HTMLAudioElement | null = null;
   private lastSpokeAt = Date.now();
-  rate = 1.25; // MC nói nhanh cho tiết tấu dồn dập (chủ kênh chốt)
+  rate = readRate(); // mặc định 1.25: MC nói nhanh cho tiết tấu dồn dập (chủ kênh chốt); chỉnh ở trang điều khiển
   volume = 1;
   enabled = IS_STAGE;
   /** báo MC nào đang nói (để nhân vật MC trên sân khấu nhún nhảy) */
@@ -132,6 +132,15 @@ class Voice {
       this.lastSpokeAt = Date.now();
       void this.next();
     }
+  }
+}
+
+function readRate() {
+  try {
+    const r = Number(localStorage.getItem('voice-rate'));
+    return r >= 0.5 && r <= 1.5 ? r : 1.25;
+  } catch {
+    return 1.25;
   }
 }
 
