@@ -1,0 +1,208 @@
+// =====================================================
+//  CẤU HÌNH "CƯỚI LIỀN TAY": số liệu + mọi câu của 2 MC
+//  Câu đọc: "M:" anh MC (giọng nam), "F:" chị MC (giọng nữ), giữ giọng tới khi đổi.
+//  "|" tách đoạn, "^" hô to hơn. Tên đưa vào đã làm sạch. Không bao giờ đọc nguyên văn comment.
+//  Giọng: câu ngắn, dồn dập, 2 MC chọc nhau, cảm thán nhiều (chủ kênh muốn hài + cảm xúc).
+// =====================================================
+
+const CHANT = 'Một, hai, ba, dô! Hai, ba, dô! Hai, ba, dô! Hai, ba, uống! Uống cạn ly!';
+
+type N = string;
+const roleWord = (r: 'groom' | 'bride') => (r === 'groom' ? 'chú rể' : 'cô dâu');
+const stealWord = (r: 'groom' | 'bride') => (r === 'groom' ? 'cướp rể' : 'cướp dâu');
+
+export const GAME = {
+  title: 'Cưới Liền Tay',
+  defaultChannelName: 'nhà mình',
+
+  // ---------- Luật ----------
+  stealMin: 30, // tặng từ 30 xu là cướp được (lần nào cũng 30, không đấu giá)
+  answerMs: 60_000, // người được hỏi có 60 giây gõ ĐỒNG Ý
+  maxQueue: 5, // đám chờ cưới tối đa
+  likesPerBoost: 300,
+  giftBig: 99,
+  giftThanksCooldownMs: 30_000,
+  greetEveryMs: 6000,
+  namesPerGreeting: 3,
+  chatterQuietMs: 3000,
+  shareReminderEveryMs: 4 * 60_000,
+
+  // ---------- Người lướt vào live ----------
+  greetings: [
+    (n: N) => `M: Ơ ơ ơ! ${n} vừa ghé kìa! | F: ^Vào đây! | F: Cỗ còn nóng, cô dâu chú rể thì chưa có. Biết đâu là bạn đó!`,
+    (n: N) => `F: Chào ${n}! | M: Ở đây ai cũng làm cô dâu chú rể được hết! | F: Gõ cưới, a còng, tên người ta. ^Xong!`,
+    (n: N) => `M: ${n} ơi! Đi ngang đám cưới mà không vô là mất phần cỗ đó nha! | F: ^Mất luôn con gà!`,
+    (n: N) => `F: A! ${n} tới rồi! | M: Ngồi đâu cũng được. | F: Bàn nào cũng có người độc thân! | M: ^Bàn nào cũng có!`,
+    (n: N) => `M: Kính thưa quý vị, ${n} vừa tới! | F: ^Pháo tay! | M: Pháo tay thôi nha. Pháo thật để dành lúc cưới!`,
+    (n: N) => `F: ${n} ơi! Độc thân thì ở lại. | M: Có người yêu thì dắt vô. | F: ^Hôm nay cưới tại chỗ!`,
+  ],
+
+  // ---------- Cầu hôn ----------
+  // a = người gõ, b = người được hỏi, role = vai của người gõ
+  proposal: {
+    groom: [
+      (a: N, b: N) => `M: ^Có biến! Có biến rồi bà con ơi! | M: ${a} vừa quỳ xuống cầu hôn ${b}! | F: ^Trời ơi tim tôi! | F: ${b} ơi! Gõ đồng ý là lên xe hoa, gõ không là anh ấy về khóc một mình đó!`,
+      (a: N, b: N) => `F: ^Ối giời ơi! | F: ${a} quỳ ngay giữa cổng hoa luôn rồi! | M: Nhẫn có! Hoa có! Can đảm có! | M: Chỉ thiếu mỗi ${b} gật đầu thôi!`,
+      (a: N, b: N) => `M: Dừng! Dừng hết lại! | M: ${a} đang xin cưới ${b}! | F: Cái nhẫn kìa, chắc nhịn ăn sáng ba tháng đó! | F: ^${b} ơi gõ đồng ý đi!`,
+    ],
+    bride: [
+      (a: N, b: N) => `F: ^Chị em ơi nhìn kìa! | F: ${a} chủ động hỏi cưới ${b} luôn! | M: ^Thời đại mới rồi bà con! | M: ${b} ơi, người ta quỳ rồi đó, gõ đồng ý lẹ lên!`,
+      (a: N, b: N) => `M: ^Ơ kìa! | M: ${a} cầm nhẫn đi hỏi cưới ${b}! | F: Con gái mà dám hỏi cưới là bản lĩnh lắm nha! | F: ${b} mà từ chối là cả hội trường giận đó!`,
+      (a: N, b: N) => `F: Hôm nay ${a} hết chịu nổi rồi! | F: ^Tự đi hỏi cưới ${b} luôn! | M: ${b} ơi, cơ hội ngàn năm có một, gõ đồng ý đi em!`,
+    ],
+    picked: (a: N, role: 'groom' | 'bride') => `M: Ơ, ${a} gõ cưới mà không nói làm cô dâu hay chú rể! | F: Vậy MC bốc giùm luôn! | F: ^${a} làm ${roleWord(role)}! | M: Khỏi cãi!`,
+    stealHint: (price: number, role: 'groom' | 'bride') => `F: Ai không chịu? | M: ^${cap(stealWord(role))} đi! | F: Tặng ${price} xu là cướp liền tay!`,
+  },
+  self: (a: N) => `F: ${a} ơi! Tự cưới chính mình là không được nha! | M: Yêu bản thân thì tốt. Nhưng chọn thêm một người nữa đi em!`,
+  queued: (a: N, n: number) => `M: Từ từ ${a} ơi! Đang có đám khác trên lễ đường! | F: Bạn xếp thứ ${n}. Ăn cỗ trước đi, cưới sau!`,
+  queueFull: `F: ^Trời đất ơi, hàng chờ cưới dài quá rồi! | M: Từ từ thôi bà con, MC dẫn không kịp!`,
+  targetMissing: (b: N) => `F: Mà khoan... ${b} có ở đây không ta? | M: ${b} ơi! Comment một câu vào tiệc rồi gõ đồng ý nha! | F: Người ta quỳ mỏi gối rồi kìa!`,
+  targetArrived: (b: N) => `M: ^${b} xuất hiện rồi! | F: Cả hội trường nín thở! | M: Suỵt... nghe được cả tiếng tim đập luôn!`,
+  nudge: [
+    (b: N, s: number) => `F: ^Còn ${s} giây! | F: ${b} ơi gõ đồng ý đi! | M: Im lặng là đồng ý... à không, ở đây phải gõ mới tính!`,
+    (b: N, s: number) => `M: ${b} còn suy nghĩ hả? Còn ${s} giây thôi! | F: ^Nghĩ lẹ lên! Cỗ nguội hết rồi!`,
+    (b: N, s: number) => `F: ${s} giây nữa thôi ${b} ơi! | M: Người ta quỳ tê chân rồi kìa! | F: ^Thương người ta đi mà!`,
+  ],
+  accepted: [
+    (a: N, b: N) => `F: ^Đồng ý rồi! Đồng ý rồi! | M: ^Ôi trời ơi! | F: ${b} đã gật đầu với ${a}! | M: Thay đồ! Lên lễ đường! ^Đi!`,
+    (a: N, b: N) => `M: ^Thành công rồi bà con ơi! | F: Pháo tay cho ${a} và ${b}! | M: Ban nhạc chuẩn bị! Xe hoa chuẩn bị! | F: Mẹ vợ chuẩn bị tinh thần!`,
+    (a: N, b: N) => `F: ^Có! ${b} nói có! | M: ^Hoan hô! | F: ${a} ơi đứng dậy đi, quỳ nãy giờ đủ rồi! | M: Lên lễ đường thôi!`,
+  ],
+  outfit: (setName: string) => `F: Hôm nay cô dâu chú rể diện bộ ${setName}! | M: ^Đẹp đôi quá trời quá đất!`,
+  outfitFunny: `M: Khoan... khoan đã! | M: Chú rể mặc quần đùi, đi dép tổ ong?! | F: Cô dâu thì váy cưới với giày bata! | M: ^Đi cưới hay đi tập thể dục vậy trời!`,
+  rejected: [
+    (a: N, b: N) => `M: ^Ối dồi ôi! | F: ${b} đã từ chối! | M: ${a} ơi đứng dậy đi em. Ngoài kia còn nhiều người lắm. | F: Ví dụ như MC nè!`,
+    (a: N, b: N) => `F: ^Trời ơi! Bị từ chối giữa thanh thiên bạch nhật! | M: ${a} về bàn ăn thêm miếng gà cho đỡ buồn nha. | F: ${b} lạnh lùng ghê!`,
+    (a: N, b: N) => `M: ${b} nói không! | F: ^Không! | M: ${a} ơi, cất nhẫn đi em. Để dành cưới người khác!`,
+  ],
+  timeout: [
+    (a: N, b: N) => `M: ^Hết giờ! | F: ${b} không trả lời. | M: ${a} ơi, im lặng không phải lúc nào cũng là vàng. | F: Lần này là cỗ nguội!`,
+    (a: N, b: N) => `F: Sáu mươi giây trôi qua mà ${b} vẫn im re! | M: ${a} quỳ không công rồi! | F: Về bàn uống ly nước cam cho bình tĩnh nha!`,
+  ],
+
+  // ---------- Lên lễ đường + cướp ----------
+  walk: [
+    (g: N, b: N) => `F: Và giờ đây! Xin mời cô dâu ${b} và chú rể ${g} tiến vào lễ đường! | M: ^Vỗ tay! Vỗ tay thật to!`,
+    (g: N, b: N) => `M: Kính thưa quan viên hai họ! ${g} và ${b} đang bước trên thảm đỏ! | F: Đi chậm thôi! Chưa cưới mà chạy là không được nha!`,
+  ],
+  walkSteal: (price: number) => `M: Nhưng mà! | F: Đang trên thảm đỏ vẫn cướp được nha! | M: ^Tặng ${price} xu là cướp liền tay!`,
+  stolen: [
+    (n: N, o: N, role: 'groom' | 'bride') => `M: ^Cướp! Cướp rồi! | F: ^${cap(stealWord(role))}! ${n} ${stealWord(role)} ngay trước mặt ${o}! | M: ${o} ơi, tiền trao cháo múc rồi em ơi!`,
+    (n: N, o: N, role: 'groom' | 'bride') => `F: ^Trời đất quỷ thần ơi! | M: ${n} lao vào như cầu thủ ghi bàn! | M: Hất văng ${o} ra ngoài! | F: ${cap(roleWord(role))} giờ đã có người mới!`,
+    (n: N, o: N, role: 'groom' | 'bride') => `M: Tường thuật trực tiếp! | M: ${n} vượt qua ${o}... sút! | F: ^Vào! Vào! Vào! | M: ${cap(roleWord(role))} đổi chủ rồi bà con ơi!`,
+    (n: N, o: N) => `F: ^Á á á! | F: ${n} vừa cướp người yêu của ${o}! | M: ${o} đứng hình mất năm giây! | F: Phim Hàn cũng không dám viết vậy!`,
+  ],
+  stealLow: (n: N, need: number) => `F: ${n} ơi! Muốn cướp thì phải ${need} xu nha! | M: Quà này để mừng cưới, cướp chưa đủ đâu!`,
+  stealAccept: `M: Tiền trao cháo múc! Khỏi chờ trả lời! | F: ^Lên lễ đường luôn!`,
+
+  // ---------- Làm lễ trên sân khấu (mỗi đám 1 bản, đổi lượt) ----------
+  vows: [
+    {
+      open: (g: N, b: N) => `M: Kính thưa toàn thể quý vị! | F: Ông tơ bà nguyệt se duyên! | M: Hôm nay ${g} và ${b} chính thức về chung một nhà! | F: ^Hoan hô!`,
+      promiseG: (g: N) => `M: Chú rể ${g}! Bạn có hứa rửa bát, giặt đồ, và nộp lương đầy đủ không? | F: Im lặng là đồng ý nha! | M: ^Ghi nhận!`,
+      promiseB: (b: N) => `F: Cô dâu ${b}! Bạn có hứa không xem điện thoại chồng quá ba lần một ngày không? | M: Ba lần thôi đó! | F: ^Đồng ý luôn!`,
+    },
+    {
+      open: (g: N, b: N) => `F: Kính thưa quan viên hai họ! | M: Hôm nay trời đẹp! Cỗ ngon! | F: Và ${g} với ${b} chính thức thoát kiếp độc thân! | M: ^Chúc mừng!`,
+      promiseG: (g: N) => `F: Chú rể ${g}! Sau này cãi nhau, ai xin lỗi trước? | M: Chú rể chỉ vào mình rồi! | F: ^Biết điều quá!`,
+      promiseB: (b: N) => `M: Cô dâu ${b}! Có hứa nấu ăn ngon không? | F: Hoặc ít nhất là gọi đồ ăn ngon! | M: ^Cô dâu nói có!`,
+    },
+  ],
+  ring: `M: Xin mời đôi uyên ương trao nhẫn cưới! | F: Nhẫn vàng thật nha bà con! | M: Vàng thật... trong game!`,
+  hug: `F: Và bây giờ! Cô dâu chú rể trao nhau một cái ôm thật chặt! | M: Một! Hai! Ba! | F: ^Ôm!`,
+  toast: `M: Cả hội trường nâng ly nào! | F: ${CHANT}`,
+  closing: [
+    (g: N, b: N) => `F: Chúc ${g} và ${b} trăm năm hạnh phúc! Đầu bạc răng long! | M: Con cháu đầy nhà! | F: Ai muốn là cặp tiếp theo thì gõ cưới, a còng, tên người ta nha!`,
+    (g: N, b: N) => `M: Chúc ${g} và ${b} sớm có tin vui! | F: ^Sinh đôi luôn! | M: Cặp tiếp theo là ai đây? Gõ cưới, a còng, tên người ấy!`,
+  ],
+
+  // ---------- Danh hiệu trên bảng tên ----------
+  titles: {
+    married: (partner: N) => `💍 Đã cưới ${partner}`,
+    stealer: (role: 'groom' | 'bride') => (role === 'groom' ? '🦹 Siêu trộm rể' : '🦹 Siêu trộm dâu'),
+    robbed: '💔 Bị cướp người yêu',
+    rejected: '💔 Bị từ chối',
+  },
+
+  // ---------- Quà theo cấp (xu 1 lần tặng) ----------
+  // fx: hearts, confetti, petals, fireworks, gold, party
+  giftTiers: [
+    {
+      min: 999,
+      fx: ['fireworks', 'gold', 'hearts', 'party', 'petals'],
+      lines: [(n: N) => `M: ^Không thể tin được! | F: ^Trời ơi trời ơi! | M: ${n} là khách VIP của đám cưới hôm nay! | F: Cô dâu chú rể cúi đầu cảm ơn ${n}! | M: ^Hoan hô!`],
+    },
+    {
+      min: 299,
+      fx: ['gold', 'party', 'confetti'],
+      lines: [
+        (n: N) => `F: ^Đại gia! Đại gia xuất hiện! | M: ${n} làm cả hội trường mưa vàng luôn! | F: ^Đứng dậy quẩy!`,
+        (n: N) => `M: ^Trời ơi ${n}! | F: Quà này mừng được ba đám cưới luôn đó! | M: Cô dâu xỉu rồi kìa!`,
+      ],
+    },
+    {
+      min: 99,
+      fx: ['fireworks', 'confetti'],
+      lines: [
+        (n: N) => `M: ^Pháo hoa! | F: ${n} bắn pháo hoa mừng cưới! | M: Bàn của ${n} được thêm con gà luộc!`,
+        (n: N) => `F: ^Ôi đẹp quá! | M: Cảm ơn ${n}! | F: Pháo hoa này cô dâu nhớ cả đời!`,
+      ],
+    },
+    {
+      min: 30,
+      fx: ['confetti', 'hearts'],
+      lines: [
+        (n: N) => `F: ^Ôi! ${n} chơi lớn! | M: Pháo giấy đâu? ^Bắn!`,
+        (n: N) => `M: ${n} gửi phong bì dày nè bà con! | F: ^Cảm ơn ${n}!`,
+      ],
+    },
+    {
+      min: 10,
+      fx: ['hearts', 'petals'],
+      lines: [
+        (n: N) => `M: ${n} gửi quà mừng cưới! | F: Hoa rơi rồi kìa! Lãng mạn ghê!`,
+        (n: N) => `F: Cảm ơn ${n}! | M: Quà nhỏ mà tình to!`,
+      ],
+    },
+    {
+      min: 1,
+      fx: ['hearts'],
+      lines: [(n: N) => `F: Cảm ơn ${n}! | M: Cô dâu chú rể nhận hết!`, (n: N) => `M: ${n} gửi quà! | F: Thương ${n} ghê!`],
+    },
+  ],
+
+  boostLine: `M: ^Ba trăm tim rồi bà con ơi! | F: Cả hội trường đứng dậy! | M: ${CHANT}`,
+  zoLine: `F: Bàn nào cũng cụng ly rồi kìa! | M: ${CHANT}`,
+  thankFollow: (n: N) => `F: Cảm ơn ${n} đã theo dõi kênh! | M: Theo dõi rồi là người nhà! | F: Cưới ở đây khỏi đóng tiền mừng!`,
+  shareLines: [
+    `M: Bà con ơi! Chia sẻ live cho bạn bè vào ăn cưới với! | F: Đông vui mới có người để cưới chứ!`,
+    `F: Ai có đứa bạn độc thân thì chia sẻ live cho nó! | M: ^Biết đâu hôm nay nó có vợ!`,
+  ],
+  shareWithNames: (names: string) => `M: ${names} ơi! Chia sẻ live cho bạn bè vào ăn cưới nha! | F: Đông vui mới có người để cưới!`,
+
+  // ---------- MC rảnh thì nói ----------
+  chatter: {
+    howTo: [
+      `M: Luật nhà mình dễ ợt! | F: Gõ cưới vợ, a còng, tên người ta. | M: Hoặc cưới chồng, a còng, tên người ta. | F: Người kia gõ đồng ý là ^lên lễ đường!`,
+      `F: Ai đang thích thầm ai thì nay là cơ hội! | M: Gõ cưới, a còng, tên người đó! | F: Bị từ chối thì MC an ủi bằng một tràng pháo tay!`,
+      `M: Thấy người ta sắp cưới mà mình cũng thích? | F: ^Cướp luôn! | M: Tặng ba mươi xu là cướp được dâu, cướp được rể!`,
+    ],
+    match: (a: N, b: N) => `M: Ê nhìn kìa! ${a} với ${b} ngồi gần nhau nãy giờ! | F: ^Hợp ghê! | F: ${a} ơi, gõ cưới, a còng, ${b} đi! MC ủng hộ hết mình!`,
+    crowd: (n: number) => `M: ${n} khách trong tiệc! | F: ${n} người mà chưa ai dám cưới! | M: ^MC buồn ghê!`,
+    married: (k: number) => `M: Hôm nay đã có ${k} cặp về chung một nhà! | F: ^Cặp tiếp theo là ai đây?`,
+    onStage: (g: N, b: N) => `F: ${g} với ${b} vẫn đứng vẫy tay trên sân khấu kìa! | M: Ai muốn là đám tiếp theo thì gõ cưới nha!`,
+    questions: [
+      `F: Ai đang độc thân thì gõ một chữ độc thân cho MC xem nào!`,
+      `M: Bà con thích cô dâu mặc váy cưới hay áo dài? | F: Comment cho MC biết với!`,
+      `F: Đám cưới mà không ai cướp dâu thì buồn lắm! | M: ^Có ai dám không?`,
+      `M: Ai từng bị người yêu cũ đi cưới người khác thì gõ chữ khóc! | F: MC thương!`,
+    ],
+    zo: [`M: Bàn nào chưa cụng ly thì gõ zô! | F: ^Gõ zô là cả bàn nâng ly liền!`],
+  },
+};
+
+function cap(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+export { roleWord };

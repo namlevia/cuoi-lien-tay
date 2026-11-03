@@ -1,0 +1,250 @@
+/* Màn hình Cưới Liền Tay: kem, hồng phấn, vàng nhạt. CSS thường, không Tailwind. */
+.dc-stage {
+  position: relative;
+  width: 1080px;
+  height: 1920px;
+  overflow: hidden;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  color: #5a2a36;
+  background: #f6e6d8;
+}
+.dc-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.dc-title {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: 'Dancing Script', cursive;
+  font-weight: 700;
+  font-size: 118px;
+  line-height: 1.05;
+  color: #c2415d;
+  -webkit-text-stroke: 3px #fffaf5;
+  paint-order: stroke fill;
+  text-shadow: 0 6px 18px rgba(150, 60, 80, 0.25);
+}
+
+/* Vùng an toàn bản mobile: TikTok cắt ~100px mỗi bên, góc trên trái có huy hiệu kênh + xếp hạng tới ~y 255 */
+.dc-bar {
+  position: absolute;
+  top: 262px;
+  left: 105px;
+  right: 105px;
+  height: 108px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 22px;
+  border-radius: 28px;
+  background: rgba(255, 250, 245, 0.94);
+  border: 3px solid #f2b8c6;
+  box-shadow: 0 8px 24px rgba(120, 50, 60, 0.15);
+}
+.dc-pill {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: #f6d58e;
+  color: #7a4a10;
+  font-weight: 800;
+  font-size: 24px;
+  white-space: nowrap;
+}
+.dc-pill-live {
+  background: #d4566b;
+  color: #fff;
+  animation: dc-pulse 1.2s ease-in-out infinite alternate;
+}
+@keyframes dc-pulse {
+  to {
+    transform: scale(1.06);
+  }
+}
+.dc-ava {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid #f2b8c6;
+  flex: none;
+}
+.dc-ava-empty {
+  display: grid;
+  place-items: center;
+  background: #fde3ea;
+  color: #d4566b;
+  font-size: 36px;
+}
+.dc-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.dc-who b {
+  font-size: 32px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dc-who span {
+  font-size: 24px;
+  color: #9a6470;
+}
+.dc-side {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  flex: none;
+}
+.dc-queue {
+  font-size: 26px;
+}
+.dc-queue b {
+  font-size: 32px;
+  color: #c2415d;
+}
+.dc-like {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 22px;
+}
+.dc-like-bar {
+  width: 100px;
+  height: 14px;
+  border-radius: 999px;
+  background: #f3dde3;
+  overflow: hidden;
+}
+.dc-like-bar div {
+  height: 100%;
+  background: linear-gradient(90deg, #f6b26b, #d4566b);
+  transition: width 0.4s;
+}
+
+.dc-guide {
+  position: absolute;
+  top: 380px;
+  left: 105px;
+  right: 105px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 22px;
+  background: rgba(255, 250, 245, 0.92);
+  border: 3px solid #f6d58e;
+  box-shadow: 0 6px 16px rgba(120, 50, 60, 0.15);
+}
+.dc-guide-h {
+  font-weight: 800;
+  font-size: 26px;
+  color: #9a6470;
+}
+.dc-chip {
+  white-space: nowrap;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #fde3ea;
+  color: #c2415d;
+  font-weight: 800;
+  font-size: 25px;
+}
+@keyframes dc-card-in {
+  from {
+    opacity: 0;
+    transform: rotate(-8deg) scale(0.6);
+  }
+}
+.dc-gift {
+  position: absolute;
+  top: 1340px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content;
+  padding: 16px 32px;
+  border-radius: 28px;
+  background: linear-gradient(90deg, #f49ab2, #f6d58e);
+  color: #5a2a36;
+  font-size: 34px;
+  white-space: nowrap;
+  box-shadow: 0 10px 26px rgba(150, 60, 80, 0.3);
+  animation: dc-card-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+.dc-gift-big {
+  font-size: 40px;
+  background: linear-gradient(90deg, #d4566b, #f6b26b);
+  color: #fff;
+}
+.dc-canvas-2d {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Cặp đôi trên thanh trạng thái: 2 avatar + tim */
+.dc-pair {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.dc-heart {
+  font-size: 34px;
+  color: #d4566b;
+  animation: dc-pulse 0.7s ease-in-out infinite alternate;
+}
+.dc-count {
+  font-size: 30px;
+  font-weight: 800;
+  color: #c2415d;
+}
+
+/* Banner cướp dâu: đỏ, nhấp nháy, nằm dưới hàng hướng dẫn */
+.dc-steal {
+  position: absolute;
+  top: 470px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content;
+  max-width: 870px;
+  padding: 14px 30px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #b5179e, #d62828);
+  color: #fff;
+  font-size: 36px;
+  font-weight: 800;
+  white-space: nowrap;
+  box-shadow: 0 10px 26px rgba(120, 20, 60, 0.35);
+  animation: dc-pulse 0.8s ease-in-out infinite alternate;
+}
+.dc-steal b {
+  color: #ffe066;
+}
+.dc-queue-pill {
+  position: absolute;
+  top: 1560px;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content;
+  padding: 10px 24px;
+  border-radius: 999px;
+  background: rgba(255, 250, 245, 0.92);
+  border: 3px solid #f2b8c6;
+  font-size: 28px;
+  color: #9a6470;
+}
+.dc-queue-pill b {
+  color: #c2415d;
+}
