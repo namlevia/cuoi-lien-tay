@@ -36,7 +36,13 @@ Phần live (TikTok, giọng đọc, đọc tên, cảm ơn quà, gỡ kẹt gi�
 - 2 MC nam nữ đối đáp, giọng hài, nhiều cảm thán, câu ngắn dồn dập. Tốc độ đọc 1.25.
 - Ghế không có nơ hồng (chấm hồng nhấp nháy khi nhìn xa).
 - Camera: toàn cảnh khi rảnh; cầu hôn quay từ phía sân khấu ra cổng hoa (thấy mặt 2 người); đi thảm đỏ quay trước mặt cặp đôi; làm lễ quay sân khấu; MC gọi tên/cảm ơn quà thì lia tới người đó vài giây.
-- Bảng màu: tường xanh navy đêm, ghế/đĩa lót/viền bàn/cổng hoa/viền sân khấu màu bạc, lá xanh trong hoa; hồng chỉ ở hoa và chữ tiêu đề (trắng viền hồng). Đã thử vàng gold + đỏ vang: chủ kênh chê ra màu cam, bỏ. Có đèn rọi quét, kim tuyến bạc rơi liên tục, pháo giấy bắn từ 2 góc sân khấu mỗi 40 giây + lúc đồng ý / cướp / nâng ly.
+- Bảng màu (cũ, đã thay bằng hoàng hôn bên dưới): tường xanh navy đêm, ghế/đĩa lót/viền bàn/cổng hoa/viền sân khấu màu bạc, lá xanh trong hoa; hồng chỉ ở hoa và chữ tiêu đề (trắng viền hồng). Đã thử vàng gold + đỏ vang: chủ kênh chê ra màu cam, bỏ. Có đèn rọi quét, kim tuyến bạc rơi liên tục, pháo giấy bắn từ 2 góc sân khấu mỗi 40 giây + lúc đồng ý / cướp / nâng ly.
 - Bảng tên luôn có ô avatar (chưa có ảnh thì chữ cái đầu trên nền màu).
 - Mai mối: mỗi ~50-70 giây lúc không có đám, camera zoom vào 1 bàn có 2 khách thật, MC gọi tên 2 bạn ép lên cưới (`GAME.pair`, cổ vũ thật mạnh, hài), 15 giây chưa ai gõ thì ép tiếp (`GAME.pairPush`).
 - Chống 2 giọng: server giữ danh sách trang stage đang mở, chỉ trang mở sau cùng phát tiếng (giọng + nhạc), các trang khác tự im; trang điều khiển báo khi có >1 trang stage. Chủ kênh từng nghe 2 giọng đọc lệch nhau khi live thử (2026-11-03).
+- Không gian hoàng hôn cho dịu mắt (2026-11-03): tường tím mận, cửa kính lớn sau sân khấu và 2 bên nhìn ra trời tím hồng đào có mặt trời lặn, nắng chiều ấm. Viền bạc giữ nguyên.
+- Hiệu ứng nhiều nhưng không giật: `world.quality` tự hạ khi dưới ~40 khung/giây (bớt kim tuyến, khói, giảm độ nét), mượt lại thì tăng.
+- Người lướt vào live: được mời vào ngồi ăn cỗ luôn (có tên, avatar), MC gọi tên trêu. Người comment ưu tiên: hết chỗ thì người comment thế chỗ người lướt qua lâu nhất.
+- Phòng vắng 40 giây: "dàn khách quen" (10 nhân vật tên vui như Chú Tư Xe Ôm, Bà Tám Hàng Xóm, `GAME.cast`) tự cầu hôn nhau, 70% đồng ý, 30% từ chối. Cố ý dùng nhân vật của chương trình, không gán hành động cho người xem thật.
+- Nhân viên bưng mâm chỉ phục vụ bàn cùng phía cửa bếp (không băng qua thảm đỏ che cặp đôi).
+- 4 vũ công nữ váy ngắn kim sa nhảy trên sân khấu phía sau cô dâu chú rể (lúc cặp đôi đứng sân khấu hoặc cả sảnh quẩy).

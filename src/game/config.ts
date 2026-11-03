@@ -289,6 +289,22 @@ export const GAME = {
   ],
 
 
+  // ---------- Người lướt vào live: cho ngồi ăn cỗ luôn, MC gọi tên trêu ----------
+  passer: [
+    (n: N) => `F: Ơ ${n} vừa vào đã ngồi gắp cái đùi gà rồi kìa! | M: ^Nhanh tay ghê! | M: ${n} ơi, ăn xong nhớ comment một câu cho MC biết mặt nha!`,
+    (n: N) => `M: ${n} ngồi xuống bàn rồi! | F: Ăn cỗ thì miễn phí, cưới thì gõ cưới, a còng, tên người ta nha ${n}!`,
+    (n: N) => `F: Chào ${n}! Ghế này MC giữ cho bạn nãy giờ đó! | M: ^Ngồi đi, đừng lướt!`,
+    (n: N) => `M: ${n} vừa vô là bàn bên cạnh nhìn chằm chằm luôn! | F: Chắc thấy đẹp đôi! | M: Comment một câu đi ${n}, biết đâu có người hỏi cưới!`,
+    (n: N) => `F: Ơ ${n} lướt ngang mà bị MC kéo vô ngồi rồi nha! | M: Vào rồi thì ở lại ăn cỗ, không cho về đâu!`,
+  ],
+  passerEmoji: ['🍗', '😋', '🥢', '🥂', '👀', '🤭'],
+
+  // ---------- Dàn khách quen (nhân vật của chương trình, không phải người xem) ----------
+  // lúc phòng vắng tự diễn cầu hôn / đồng ý / từ chối cho màn hình luôn có chuyện
+  cast: ['Chú Tư Xe Ôm', 'Cô Ba Bán Bún', 'Anh Hai Lầy', 'Chị Bảy Tạp Hóa', 'Bà Tám Hàng Xóm', 'Ông Năm Râu', 'Thằng Tí Sún', 'Con Mén', 'Anh Sáu Đẹp Trai', 'Chị Út Ế'],
+  autoAfterMs: 40_000, // phòng im bao lâu thì dàn khách quen tự diễn
+  autoEveryMs: 70_000,
+
   // ---------- MC rảnh thì nói ----------
   chatter: {
     howTo: [

@@ -42,6 +42,51 @@ TABLE_ZS.forEach((z) =>
 export const STANDING: { x: number; z: number; taken: string | null }[] = [];
 for (let z = 6; z > -16; z -= 1.1) for (const x of [-10.6, -11.6, 10.6, 11.6]) STANDING.push({ x, z, taken: null });
 
+/** Trời hoàng hôn vẽ bằng canvas: tím than trên cao, hồng, đào ở chân trời, mặt trời lặn và mây */
+function sunsetTexture(withSun: boolean) {
+  const c = document.createElement('canvas');
+  c.width = 1024;
+  c.height = 512;
+  const x = c.getContext('2d')!;
+  const g = x.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, '#2c2350');
+  g.addColorStop(0.35, '#6e4a8e');
+  g.addColorStop(0.6, '#d9789b');
+  g.addColorStop(0.8, '#f4a98a');
+  g.addColorStop(1, '#ffd6a5');
+  x.fillStyle = g;
+  x.fillRect(0, 0, 1024, 512);
+  if (withSun) {
+    const s = x.createRadialGradient(512, 430, 10, 512, 430, 220);
+    s.addColorStop(0, 'rgba(255,240,200,1)');
+    s.addColorStop(0.25, 'rgba(255,214,165,0.8)');
+    s.addColorStop(1, 'rgba(255,214,165,0)');
+    x.fillStyle = s;
+    x.fillRect(0, 0, 1024, 512);
+  }
+  // mây mỏng
+  x.fillStyle = 'rgba(255,220,230,0.25)';
+  for (let i = 0; i < 14; i++) {
+    const cx = (i * 173) % 1024;
+    const cy = 180 + ((i * 97) % 200);
+    x.beginPath();
+    x.ellipse(cx, cy, 120 + (i % 3) * 40, 14 + (i % 2) * 6, 0, 0, Math.PI * 2);
+    x.fill();
+  }
+  // khung cửa kính
+  x.strokeStyle = 'rgba(230,225,240,0.55)';
+  x.lineWidth = 6;
+  for (let i = 1; i < (withSun ? 6 : 2); i++) {
+    x.beginPath();
+    x.moveTo((1024 / (withSun ? 6 : 2)) * i, 0);
+    x.lineTo((1024 / (withSun ? 6 : 2)) * i, 512);
+    x.stroke();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 export function buildHall(scene: THREE.Scene) {
   const parts = new Map<string, THREE.BufferGeometry[]>();
   const put = (color: string, g: THREE.BufferGeometry, x: number, y: number, z: number, ry = 0, rx = 0) => {
@@ -63,9 +108,9 @@ export function buildHall(scene: THREE.Scene) {
   for (const sx of [-1, 1]) put('#e6e9ef', new THREE.BoxGeometry(0.08, 0.025, GATE_Z - STAGE_FRONT + 1), sx * AISLE_HALF, 0.012, (GATE_Z + STAGE_FRONT) / 2);
 
   // tường xanh navy đêm + cột bạc + nẹp bạc (sang, không 1 tông hồng)
-  put('#141c33', new THREE.BoxGeometry(30, 9, 0.3), 0, 4.5, -27.5);
+  put('#3e2747', new THREE.BoxGeometry(30, 9, 0.3), 0, 4.5, -27.5);
   for (const sx of [-1, 1]) {
-    put('#1a2442', new THREE.BoxGeometry(0.3, 9, 44), sx * 13.5, 4.5, -6);
+    put('#4a2f52', new THREE.BoxGeometry(0.3, 9, 44), sx * 13.5, 4.5, -6);
     put('#dfe3ea', new THREE.BoxGeometry(0.1, 0.12, 44), sx * 13.3, 1.1, -6);
     put('#dfe3ea', new THREE.BoxGeometry(0.1, 0.12, 44), sx * 13.3, 7.6, -6);
     for (let z = 10; z > -27; z -= 4) put('#c4cad4', new THREE.BoxGeometry(0.2, 9, 0.35), sx * 13.3, 4.5, z);
@@ -120,7 +165,7 @@ export function buildHall(scene: THREE.Scene) {
 
   // sân khấu: mặt trắng, thân navy, viền bạc, bậc thềm
   put('#ffffff', new THREE.BoxGeometry(16, 0.08, 7.6), 0, STAGE_Y - 0.04, -23.4);
-  put('#1f2b4d', new THREE.BoxGeometry(16, STAGE_Y - 0.08, 7.6), 0, (STAGE_Y - 0.08) / 2, -23.4);
+  put('#5b3156', new THREE.BoxGeometry(16, STAGE_Y - 0.08, 7.6), 0, (STAGE_Y - 0.08) / 2, -23.4);
   put('#dfe3ea', new THREE.BoxGeometry(16.1, 0.07, 0.1), 0, STAGE_Y - 0.04, STAGE_FRONT + 0.02);
   put('#dfe3ea', new THREE.BoxGeometry(16.1, 0.05, 0.1), 0, 0.06, STAGE_FRONT + 0.02);
   put('#ffffff', new THREE.BoxGeometry(3, 0.3, 0.7), 0, 0.15, STAGE_FRONT + 0.35);
@@ -266,7 +311,22 @@ export function buildHall(scene: THREE.Scene) {
       pts.push(sx * 13.25, 6.4 - Math.abs(Math.sin(z * 0.8)) * 1.2 + (Math.random() - 0.5) * 0.15, z);
     }
   lights.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  const fairy = new THREE.Points(lights, new THREE.PointsMaterial({ color: '#fff6e6', size: 0.09 }));
+  const fairy = new THREE.Points(lights, new THREE.PointsMaterial({ color: '#ffe9cf', size: 0.09 }));
+
+  // cửa kính lớn sau sân khấu + 2 bên tường: trời hoàng hôn tím hồng dịu mắt
+  const sky = sunsetTexture(true);
+  const skyWin = new THREE.Mesh(new THREE.PlaneGeometry(30, 9), new THREE.MeshBasicMaterial({ map: sky }));
+  skyWin.position.set(0, 4.5, -27.34);
+  scene.add(skyWin);
+  const sideTex = sunsetTexture(false);
+  for (const sx of [-1, 1]) {
+    for (let z = 6; z > -24; z -= 8) {
+      const win = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 5.4), new THREE.MeshBasicMaterial({ map: sideTex }));
+      win.position.set(sx * 13.33, 4.4, z);
+      win.rotation.y = -sx * Math.PI / 2;
+      scene.add(win);
+    }
+  }
   scene.add(fairy);
 
   // phông chữ "Trăm Năm Hạnh Phúc" + tên cô dâu chú rể

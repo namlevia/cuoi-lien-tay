@@ -103,6 +103,9 @@ export function useGame() {
     lastPair: Date.now() - 30_000,
     duyen: null as null | { ids: Set<string>; until: number; said: number; maker: string | null },
     fightLimit: limiter(25_000),
+    passerLimit: limiter(15_000),
+    lastActivity: Date.now(),
+    lastAuto: Date.now() - 30_000,
     actLimit: limiter(6_000),
     crewLimit: limiter(45_000),
     lastDuyen: Date.now() - GAME.duyen.everyMs + 90_000, // lần đầu sau ~1,5 phút
@@ -390,6 +393,7 @@ export function useGame() {
 
     onChat: (e) => {
       const id = e.username;
+      s.lastActivity = Date.now();
       const isNew = !world.has(id);
       meet(id, e.nickname, e.avatar);
       if (isNew) setGuestCount(world.count);
@@ -469,6 +473,7 @@ export function useGame() {
 
     onGift: (e) => {
       const id = e.username;
+      s.lastActivity = Date.now();
       const name = meet(id, e.nickname, e.avatar);
       const coins = e.diamondCount * e.repeatCount;
       setLastGift({ ...e, nickname: name, coins });
@@ -501,8 +506,21 @@ export function useGame() {
     },
 
     onMember: (e) => {
-      const n = speakableName(safeName(e.nickname, e.username));
+      const name = safeName(e.nickname, e.username);
+      const n = speakableName(name);
       if (n !== 'bạn') s.greeter.add(e.username, n);
+      // người lướt qua: cho vào ngồi ăn cỗ luôn (người comment vẫn được ưu tiên ghế)
+      if (!world.has(e.username)) {
+        names.current.set(e.username, name);
+        if (e.avatar) avatars.current.set(e.username, e.avatar);
+        world.ensure(e.username, name, e.avatar, true);
+        setTimeout(() => {
+          if (!world.has(e.username)) return;
+          world.say(e.username, pick(GAME.passerEmoji)!, 3000);
+          if (n !== 'bạn' && s.passerLimit('all') && voice.waiting < 2)
+            voice.say(pick(GAME.passer)!(n), false, undefined, false, () => world.look(e.username, 4000));
+        }, 7000);
+      }
     },
 
     onFollow: (e) => {
@@ -594,6 +612,37 @@ export function useGame() {
           if (s.nudgeLimit('all')) voice.say(pick(GAME.nudge)!(b, left), true);
         }
       }, 1000),
+    );
+    // Dàn khách quen vào tiệc (nhân vật của chương trình, tên vui, không phải người xem)
+    GAME.cast.forEach((name, i) =>
+      setTimeout(() => {
+        names.current.set(`cast-${i}`, name);
+        world.ensure(`cast-${i}`, name);
+      }, 1500 + i * 900),
+    );
+    // Phòng vắng: dàn khách quen tự cầu hôn nhau, đồng ý / từ chối ngẫu nhiên như thật
+    timers.push(
+      setInterval(() => {
+        const now = Date.now();
+        if ((s.w && s.w.phase !== 'after') || s.duyen || now - s.lastActivity < GAME.autoAfterMs || now - s.lastAuto < GAME.autoEveryMs || voice.waiting > 0) return;
+        const cast = GAME.cast.map((_, i) => `cast-${i}`).filter((id) => world.has(id)).sort(() => Math.random() - 0.5);
+        if (cast.length < 2) return;
+        s.lastAuto = now;
+        const [a, b] = cast;
+        world.say(a, '💍 Cưới em nhé!', 4000);
+        propose({ id: a, role: Math.random() < 0.5 ? 'groom' : 'bride', target: shown(b) });
+        setTimeout(() => {
+          const w = s.w;
+          if (w?.phase !== 'proposal' || w.ids[other(w.stealRole)] !== b) return;
+          if (Math.random() < 0.7) {
+            world.say(b, '💖 Đồng ý!', 4000);
+            accept();
+          } else {
+            world.say(b, '🙅 Thôi khỏi!', 4000);
+            endProposal('no');
+          }
+        }, 10_000 + Math.random() * 12_000);
+      }, 4000),
     );
     // Nguyệt Lão định kỳ xuống se duyên lúc không có đám
     timers.push(

@@ -35,7 +35,8 @@ interface Guest {
   wedding: Look | null; // đang mặc đồ cưới
   baseLook: Look;
   role: 'groom' | 'bride' | null; // đang là cô dâu / chú rể trên lễ đường
-  busy?: boolean; // đang làm Nguyệt Lão / đi đấm người / ra sàn quẩy: không bị bốc trêu, mai mối
+  busy?: boolean;
+  passer?: boolean; // người chỉ lướt vào live, chưa comment: hết chỗ thì nhường ghế cho người comment // đang làm Nguyệt Lão / đi đấm người / ra sàn quẩy: không bị bốc trêu, mai mối
   onArrive?: () => void;
   move?: Pose; // động tác riêng của thành viên đội nhảy
 }
@@ -57,7 +58,7 @@ class World {
   private camera = new THREE.PerspectiveCamera(46, W / H, 0.1, 120);
   private camPos = v(0, 10.5, 12.5);
   private camLook = v(0, 0, -15);
-  private hemi = new THREE.HemisphereLight('#fff7f0', '#d9c2b0', 1.6);
+  private hemi = new THREE.HemisphereLight('#ffe6d2', '#c9a6c4', 1.6);
   private guests = new Map<string, Guest>();
   private npcs: Guest[] = [];
   private mcM: Chibi;
@@ -85,8 +86,13 @@ class World {
   private dancers: { g: Guest; home: V3; spot: V3 }[] = [];
   private danceUntil = 0;
   private crew: Guest[] = [];
+  private stageDancers: { g: Guest; home: V3; spot: V3 }[] = [];
+  private stageDanceOn = false;
   private dj: Chibi;
   private anticAcc = 0;
+  /** 1 = đủ hiệu ứng; máy chậm (dưới ~40 khung/giây) thì tự hạ xuống tới 0.4, mượt lại thì tăng dần */
+  quality = 1;
+  private slow = 0;
   private nguyet: Chibi;
   private nguyetOn = false;
   private thread: { a: string; b: string; until: number; mesh: THREE.Mesh | null } | null = null;
@@ -98,10 +104,10 @@ class World {
 
   constructor() {
     const s = this.scene;
-    s.background = new THREE.Color('#0e1428');
-    s.fog = new THREE.Fog('#0e1428', 34, 70);
+    s.background = new THREE.Color('#3b2440');
+    s.fog = new THREE.Fog('#3b2440', 36, 72);
     s.add(this.hemi);
-    const sun = new THREE.DirectionalLight('#ffffff', 1.3);
+    const sun = new THREE.DirectionalLight('#ffd9b8', 1.25); // nắng chiều ấm
     sun.position.set(4, 12, 10);
     s.add(sun);
     this.hall = buildHall(s);
@@ -167,6 +173,17 @@ class World {
       g.c.root.position.copy(home);
       g.face = 0;
       this.dancers.push({ g, home, spot: v(x, 0, z) });
+    });
+
+    // 4 vũ công nữ váy ngắn kim sa: chờ trong cánh gà, cô dâu chú rể lên sân khấu / cả sảnh quẩy thì ra nhảy phía sau
+    const STAGE_DANCE = ['#ff4d9d', '#b388ff', '#ff4d9d', '#b388ff'];
+    [-2.3, -0.8, 0.8, 2.3].forEach((x, i) => {
+      const look: Look = { ...guestLook(`vucong${i}`), body: 'shortGown', main: STAGE_DANCE[i], accent: '#e6e9ef', shoes: '#e6e9ef', hair: '#141010', longHair: true, hat: i % 2 ? 'tiara' : 'none' };
+      const g = this.makeGuest(`vucong${i}`, '', false, look);
+      const home = v(Math.sign(x) * (7.6 + (i % 2) * 0.5), STAGE_Y, -25.2);
+      g.c.root.position.copy(home);
+      g.face = 0;
+      this.stageDancers.push({ g, home, spot: v(x, STAGE_Y, STAGE_Z - 1.7) });
     });
 
     // Nguyệt Lão: áo đỏ, tóc râu bạc, chỉ hiện lúc se duyên
@@ -268,23 +285,28 @@ class World {
   }
 
   /** Người xem comment: vào từ cổng hoa, đi tìm ghế */
-  ensure(id: string, name: string, avatarUrl = '') {
+  ensure(id: string, name: string, avatarUrl = '', passer = false) {
     let g = this.guests.get(id);
     if (g) {
-      g.active = Date.now();
+      if (!passer) g.passer = false; // người lướt qua giờ đã comment: thành khách chính thức
+      if (!passer) g.active = Date.now();
       if (name !== g.name) {
         g.name = name;
         g.tag = null;
       }
     } else {
       if (this.guests.size >= MAX_REAL) {
-        const old = [...this.guests.values()].filter((x) => !x.role).sort((a, b) => a.active - b.active)[0];
+        // đầy: mời người lướt qua lâu nhất ra trước, hết người lướt qua mới tới người comment im lâu nhất
+        const pool = [...this.guests.values()].filter((x) => !x.role && !x.busy);
+        const old = (pool.some((x) => x.passer) ? pool.filter((x) => x.passer) : passer ? [] : pool).sort((a, b) => a.active - b.active)[0];
+        if (!old && passer) return; // người lướt qua không được đẩy người comment ra
         if (old) {
           this.removeGuest(old);
           this.guests.delete(old.id);
         }
       }
       g = this.makeGuest(id, name, true, guestLook(id));
+      g.passer = passer;
       g.active = Date.now();
       g.c.root.position.set((Math.random() - 0.5) * 1.2, 0, GATE_Z + 2.5);
       this.guests.set(id, g);
@@ -310,6 +332,15 @@ class World {
       seat = npc.seat;
       this.poof(npc.c.root.position, 20);
       this.removeGuest(npc);
+    }
+    if (!seat && !g.passer) {
+      const p = [...this.guests.values()].filter((x) => x.passer && x.seat && !x.role && !x.busy).sort((a, b) => a.active - b.active)[0];
+      if (p) {
+        seat = p.seat;
+        this.poof(p.c.root.position, 20);
+        this.removeGuest(p);
+        this.guests.delete(p.id);
+      }
     }
     if (seat) {
       seat.taken = g.id;
@@ -873,9 +904,22 @@ class World {
   // ---------- mỗi khung hình ----------
   private step(dt: number) {
     this.t += dt;
+    // tự cân hiệu ứng theo tốc độ máy: chậm 2 giây liền thì giảm, nhanh 6 giây liền thì tăng lại
+    this.slow = dt > 1 / 40 ? this.slow + dt : Math.max(0, this.slow - dt / 3);
+    if (this.slow > 2 && this.quality > 0.4) {
+      this.quality = Math.max(0.4, this.quality - 0.2);
+      this.slow = 0;
+      this.renderer?.setPixelRatio(this.quality < 0.7 ? 0.75 : 1);
+      this.renderer?.setSize(W, H, false);
+    } else if (this.slow === 0 && dt < 1 / 55 && Math.random() < dt / 6 && this.quality < 1) {
+      this.quality = Math.min(1, this.quality + 0.2);
+      this.renderer?.setPixelRatio(this.quality < 0.7 ? 0.75 : 1);
+      this.renderer?.setSize(W, H, false);
+    }
     const now = Date.now();
     const party = now < this.partyUntil;
-    this.hemi.color.setHSL(party ? (this.t * 0.25) % 1 : 0.05, party ? 0.8 : 0.3, party ? 0.75 : 0.97);
+    if (party) this.hemi.color.setHSL((this.t * 0.25) % 1, 0.8, 0.75);
+    else this.hemi.color.set('#ffe6d2');
 
     const all = [...this.guests.values(), ...this.npcs];
     for (const g of all) this.stepGuest(g, dt, now, party);
@@ -940,7 +984,7 @@ class World {
       this.antic();
     }
     this.stepStaff(now);
-    for (const g of [...this.waiters, ...this.crew, ...this.dancers.map((d) => d.g)]) this.stepGuest(g, dt, now, false);
+    for (const g of [...this.waiters, ...this.crew, ...this.dancers.map((d) => d.g), ...this.stageDancers.map((d) => d.g)]) this.stepGuest(g, dt, now, false);
     this.pets.update(dt, this.t);
     this.dj.pose = 'dj';
     this.dj.update(this.t, false);
@@ -953,7 +997,7 @@ class World {
         for (let k = 0; k < 3; k++)
           this.fx.add(v(x, STAGE_Y + 0.05, STAGE_FRONT - 0.3), v((Math.random() - 0.5) * 0.9, 5.5 + Math.random() * 2.5, (Math.random() - 0.5) * 0.9), Math.random() < 0.6 ? '#fff6d8' : '#ffd166', 1.3, 0, 7);
     // khói nhẹ trên sân khấu lúc nào cũng có, có cặp đôi thì dày hơn
-    this.smokeAcc += dt * (this.couple.mode === 'none' ? 0.6 : 2.5);
+    this.smokeAcc += dt * (this.couple.mode === 'none' ? 0.6 : 2.5) * this.quality;
     while (this.smokeAcc >= 1) {
       this.smokeAcc--;
       this.smokeBurst(1, this.couple.mode === 'walk' ? 'aisle' : 'stage');
@@ -961,7 +1005,7 @@ class World {
     this.smoke.update(dt);
 
     // kim tuyến bạc rơi lấp lánh liên tục
-    this.glitter += dt * 14;
+    this.glitter += dt * 14 * this.quality;
     while (this.glitter >= 1) {
       this.glitter--;
       this.fx.add(v((Math.random() - 0.5) * 24, 9 + Math.random() * 2, -24 + Math.random() * 34), v(0, -0.55, 0), Math.random() < 0.7 ? '#ffffff' : '#dfe8ff', 16, 0.35);
@@ -1035,8 +1079,9 @@ class World {
     for (const w of this.waiters) {
       if (w.path.length) continue;
       if (w.job === 'rest' && now > w.until) {
-        const t = TABLES[Math.floor(Math.random() * TABLES.length)];
         const p = w.c.root.position;
+        const mine = TABLES.filter((x) => Math.sign(x.x) === Math.sign(p.x));
+        const t = mine[Math.floor(Math.random() * mine.length)];
         const lane = t.z + 2.2;
         const side = t.x > 0 ? -1 : 1;
         w.path = [v(p.x * 0.95, 0, lane), v(t.x + side * 1.1, 0, lane)];
@@ -1070,6 +1115,21 @@ class World {
         }
       }
     for (const d of this.dancers) d.g.action = now < this.danceUntil && !d.g.path.length ? { pose: d.g.move ?? 'dance', until: this.danceUntil } : null;
+    // vũ công trên sân khấu: ra nhảy khi cặp đôi đứng sân khấu hoặc cả sảnh quẩy (không lúc Nguyệt Lão)
+    const want = !this.nguyetOn && (this.couple.mode === 'stage' || now < this.partyUntil);
+    if (want !== this.stageDanceOn) {
+      this.stageDanceOn = want;
+      for (const d of this.stageDancers) {
+        const to = want ? d.spot : d.home;
+        d.g.path = [v(to.x, STAGE_Y, d.g.c.root.position.z), to.clone()];
+        d.g.speed = 3;
+        d.g.face = 0;
+        d.g.c.sync(0);
+      }
+    }
+    this.stageDancers.forEach((d, i) => {
+      d.g.action = want && !d.g.path.length ? { pose: Math.floor(this.t / 4 + i) % 3 === 0 ? 'spin' : 'dance', until: now + 500 } : null;
+    });
     const firing = this.t - this.lastCannon < 2.5;
     for (const c of this.crew) c.action = firing ? { pose: 'cheer', until: now + 500 } : null;
   }
