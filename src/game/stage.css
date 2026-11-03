@@ -43,7 +43,7 @@
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  border-radius: 22px 22px 8px 8px;
+  border-radius: 22px;
   background: rgba(255, 250, 245, 0.94);
   border: 3px solid #c4cad4;
   box-shadow: 0 8px 24px rgba(5, 10, 30, 0.45);
@@ -229,7 +229,7 @@
 /* Banner cướp dâu: đỏ, nhấp nháy, nằm dưới 2 hàng hướng dẫn */
 .dc-steal {
   position: absolute;
-  top: 345px;
+  top: 300px;
   left: 0;
   right: 0;
   margin: 0 auto;
@@ -314,7 +314,7 @@
 /* PK cướp dâu: 2 phe, thanh điểm đỏ (cướp) / xanh (giữ), nằm dưới 2 hàng hướng dẫn */
 .dc-pk {
   position: absolute;
-  top: 345px;
+  top: 300px;
   left: 120px;
   right: 120px;
   padding: 12px 18px 14px;
@@ -406,10 +406,6 @@
 
 /* Top đại gia mừng cưới: góc dưới bên phải (né vùng comment bên trái của TikTok, né mép phải bị cắt) */
 .dc-top {
-  position: absolute;
-  top: 1090px;
-  right: 105px;
-  width: 300px;
   padding: 10px 14px 12px;
   border-radius: 20px;
   background: rgba(20, 10, 30, 0.72);
@@ -449,4 +445,41 @@
   text-align: center;
   font-size: 18px;
   opacity: 0.85;
+}
+
+/* Cột bên phải: Luật chơi ngay trên Top đại gia, luôn hiện cho người mới vào live */
+.dc-side-col {
+  position: absolute;
+  top: 760px;
+  right: 105px;
+  width: 330px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dc-rules {
+  padding: 10px 14px 12px;
+  border-radius: 20px;
+  background: rgba(255, 250, 245, 0.93);
+  border: 2px solid #f2b8c6;
+  color: #5a2a36;
+  font-size: 19px;
+  line-height: 1.35;
+}
+.dc-rules-h {
+  margin-bottom: 4px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: #c2415d;
+}
+.dc-rules ol {
+  margin: 0;
+  padding-left: 24px;
+}
+.dc-rules li {
+  margin: 3px 0;
+}
+.dc-rules b {
+  color: #c2415d;
 }

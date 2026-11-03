@@ -5,12 +5,6 @@ import { H, W, world } from './world/world';
 import './stage.css';
 
 const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
-const HINTS = [
-  <>🤵 Gõ <b>CƯỚI VỢ @tên</b> · 👰 <b>CƯỚI CHỒNG @tên</b></>,
-  <>💖 Người được hỏi gõ <b>ĐỒNG Ý</b> mới cưới</>,
-  <>⚔️ Đang cầu hôn? Gõ <b>CƯỚP</b> để PK</>,
-  <>💃 Gõ <b>QUẨY</b> · 🙏 <b>SE DUYÊN</b> khi Nguyệt Lão xuống</>,
-];
 const MEDALS = ['🥇', '🥈', '🥉'];
 /** phần trăm thanh phe cướp (chưa ai có điểm thì chia đôi; luôn chừa chỗ cho số của cả 2 phe) */
 const pkPct = (a: number, d: number) => (a + d === 0 ? 50 : Math.min(85, Math.max(15, (a / (a + d)) * 100)));
@@ -35,11 +29,6 @@ export function GameStage({ game }: { game: GameState }) {
   const left = v ? Math.max(0, Math.ceil((v.until - Date.now()) / 1000)) : 0;
   const likePct = Math.min(100, (game.likeProgress / game.likeNext) * 100);
   const canSteal = v && v.phase === 'proposal' && !v.pkDone;
-  const [hint, setHint] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setHint((h) => (h + 1) % HINTS.length), 4000);
-    return () => clearInterval(t);
-  }, []);
 
   return (
     <div className="dc-stage">
@@ -98,9 +87,25 @@ export function GameStage({ game }: { game: GameState }) {
         </div>
       </div>
 
-      {/* Hướng dẫn: 1 dòng, tự đổi nội dung mỗi 4 giây cho gọn (bản mobile cắt 2 bên nên không để ở góc) */}
-      <div key={hint} className="dc-guide">
-        {HINTS[hint]}
+      {/* Luật chơi + Top đại gia: 1 cột bên phải, luật nằm ngay trên bảng Top, luôn hiện cho người mới vào */}
+      <div className="dc-side-col">
+      <div className="dc-rules">
+        <div className="dc-rules-h">📜 Luật chơi</div>
+        <ol>
+          <li>
+            Gõ <b>CƯỚI VỢ @tên</b> hoặc <b>CƯỚI CHỒNG @tên</b> để cầu hôn
+          </li>
+          <li>
+            Người được hỏi gõ <b>ĐỒNG Ý</b> là lên lễ đường
+          </li>
+          <li>
+            Không chịu? Gõ <b>CƯỚP</b> mở PK · phe giữ gõ <b>KHÔNG</b> · 1 xu = 10 điểm
+          </li>
+          <li>Tặng quà nhiều nhất được làm ba mẹ cô dâu chú rể</li>
+          <li>
+            Gõ <b>QUẨY</b> ra sàn nhảy · <b>SE DUYÊN</b> khi Nguyệt Lão xuống
+          </li>
+        </ol>
       </div>
 
       {/* luôn hiện; chưa ai tặng thì mời tặng quà để lên bảng */}
@@ -114,6 +119,7 @@ export function GameStage({ game }: { game: GameState }) {
           </div>
         ))}
         {game.top.length === 0 && <div className="dc-top-empty">Tặng quà mừng cưới để lên bảng 🎁</div>}
+      </div>
       </div>
 
       {game.pk ? (
