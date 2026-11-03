@@ -327,6 +327,7 @@ export function useGame() {
       }
       if (cmd?.type === 'zo') {
         world.zo(id);
+        world.say(id, '🥂 Zô!', 2500);
         const now = Date.now();
         s.zoCount = s.zoCount.filter((t) => now - t < 10_000);
         s.zoCount.push(now);
