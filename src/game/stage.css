@@ -23,10 +23,10 @@
   font-weight: 700;
   font-size: 118px;
   line-height: 1.05;
-  color: #c2415d;
-  -webkit-text-stroke: 3px #fffaf5;
+  color: #f3c969;
+  -webkit-text-stroke: 3px #4a0f26;
   paint-order: stroke fill;
-  text-shadow: 0 6px 18px rgba(150, 60, 80, 0.25);
+  text-shadow: 0 0 22px rgba(243, 201, 105, 0.55), 0 6px 18px rgba(40, 0, 15, 0.6);
 }
 
 /* Vùng an toàn bản mobile: TikTok cắt ~100px mỗi bên, góc trên trái có huy hiệu kênh + xếp hạng tới ~y 255 */
@@ -42,8 +42,8 @@
   padding: 0 22px;
   border-radius: 28px;
   background: rgba(255, 250, 245, 0.94);
-  border: 3px solid #f2b8c6;
-  box-shadow: 0 8px 24px rgba(120, 50, 60, 0.15);
+  border: 3px solid #d4a84b;
+  box-shadow: 0 8px 24px rgba(40, 0, 15, 0.45);
 }
 .dc-pill {
   padding: 8px 14px;
@@ -141,8 +141,8 @@
   padding: 10px 14px;
   border-radius: 22px;
   background: rgba(255, 250, 245, 0.92);
-  border: 3px solid #f6d58e;
-  box-shadow: 0 6px 16px rgba(120, 50, 60, 0.15);
+  border: 3px solid #d4a84b;
+  box-shadow: 0 6px 16px rgba(40, 0, 15, 0.45);
 }
 .dc-guide-h {
   font-weight: 800;

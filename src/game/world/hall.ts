@@ -62,9 +62,15 @@ export function buildHall(scene: THREE.Scene) {
   put('#b3122e', new THREE.BoxGeometry(AISLE_HALF * 2, 0.02, GATE_Z - STAGE_FRONT + 1), 0, 0.01, (GATE_Z + STAGE_FRONT) / 2);
   for (const sx of [-1, 1]) put('#e8c26a', new THREE.BoxGeometry(0.08, 0.025, GATE_Z - STAGE_FRONT + 1), sx * AISLE_HALF, 0.012, (GATE_Z + STAGE_FRONT) / 2);
 
-  // tường
-  put('#f7dfe4', new THREE.BoxGeometry(30, 9, 0.3), 0, 4.5, -27.5);
-  for (const sx of [-1, 1]) put('#fbeef0', new THREE.BoxGeometry(0.3, 9, 44), sx * 13.5, 4.5, -6);
+  // tường đỏ rượu vang thẫm + cột vàng + nẹp vàng (cho sang, không 1 tông hồng)
+  put('#4a0f26', new THREE.BoxGeometry(30, 9, 0.3), 0, 4.5, -27.5);
+  for (const sx of [-1, 1]) {
+    put('#5a1632', new THREE.BoxGeometry(0.3, 9, 44), sx * 13.5, 4.5, -6);
+    put('#d4a84b', new THREE.BoxGeometry(0.1, 0.12, 44), sx * 13.3, 1.1, -6);
+    put('#d4a84b', new THREE.BoxGeometry(0.1, 0.12, 44), sx * 13.3, 7.6, -6);
+    for (let z = 10; z > -27; z -= 4) put('#c9973c', new THREE.BoxGeometry(0.2, 9, 0.35), sx * 13.3, 4.5, z);
+  }
+  for (const x of [-14, -9.5, 9.5, 14]) put('#c9973c', new THREE.BoxGeometry(0.4, 9, 0.2), x, 4.5, -27.3);
 
   // bàn tròn trắng + 10 ghế trắng + đĩa + bình hoa
   const tableTop = new THREE.CylinderGeometry(1.05, 1.05, 0.05, 28);
@@ -73,13 +79,23 @@ export function buildHall(scene: THREE.Scene) {
   const back = new THREE.BoxGeometry(0.42, 0.5, 0.05);
   const leg = new THREE.CylinderGeometry(0.025, 0.025, 0.45, 5);
   const plate = new THREE.CylinderGeometry(0.13, 0.11, 0.02, 12);
+  const charger = new THREE.CylinderGeometry(0.17, 0.17, 0.012, 14);
+  const rim = new THREE.TorusGeometry(1.06, 0.03, 6, 40);
+  const leaf = new THREE.SphereGeometry(0.09, 6, 5);
+  const candle = new THREE.CylinderGeometry(0.03, 0.03, 0.1, 6);
   const vase = new THREE.CylinderGeometry(0.08, 0.12, 0.3, 10);
   const bloom = new THREE.SphereGeometry(0.1, 8, 6);
   const glass = new THREE.CylinderGeometry(0.035, 0.025, 0.12, 6);
   for (const t of TABLES) {
     put('#ffffff', tableTop, t.x, 0.75, t.z);
     put('#fdfbf7', cloth, t.x, 0.38, t.z);
-    put('#e9d9b5', vase, t.x, 0.92, t.z);
+    put('#d4a84b', vase, t.x, 0.92, t.z);
+    put('#d4a84b', rim, t.x, 0.77, t.z, 0, Math.PI / 2);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.3;
+      put('#5f8f4e', leaf, t.x + Math.sin(a) * 0.17, 1.04, t.z + Math.cos(a) * 0.17);
+      put('#fff1a8', candle, t.x + Math.sin(a) * 0.42, 0.83, t.z + Math.cos(a) * 0.42);
+    }
     for (let i = 0; i < 7; i++) {
       const a = (i / 7) * Math.PI * 2;
       put(i % 2 ? '#ff8fab' : '#ffffff', bloom, t.x + Math.sin(a) * 0.12, 1.1 + (i % 3) * 0.03, t.z + Math.cos(a) * 0.12);
@@ -87,7 +103,8 @@ export function buildHall(scene: THREE.Scene) {
     put('#ff4d6d', bloom, t.x, 1.18, t.z);
     for (let i = 0; i < SEATS_PER_TABLE; i++) {
       const a = (i / SEATS_PER_TABLE) * Math.PI * 2 + 0.31;
-      put('#f4f1ea', plate, t.x + Math.sin(a) * 0.78, 0.785, t.z + Math.cos(a) * 0.78);
+      put('#d4a84b', charger, t.x + Math.sin(a) * 0.78, 0.778, t.z + Math.cos(a) * 0.78);
+      put('#f4f1ea', plate, t.x + Math.sin(a) * 0.78, 0.792, t.z + Math.cos(a) * 0.78);
       put('#fff6cc', glass, t.x + Math.sin(a + 0.2) * 0.72, 0.84, t.z + Math.cos(a + 0.2) * 0.72);
     }
   }
@@ -96,27 +113,30 @@ export function buildHall(scene: THREE.Scene) {
     const bx = s.x - Math.sin(s.face) * 0.22;
     const bz = s.z - Math.cos(s.face) * 0.22;
     put('#ffffff', seat, s.x, 0.45, s.z, s.face);
-    put('#ffffff', back, bx, 0.72, bz, s.face);
+    put('#d4a84b', back, bx, 0.72, bz, s.face);
     for (const [dx, dz] of [[-0.17, -0.17], [0.17, -0.17], [-0.17, 0.17], [0.17, 0.17]])
-      put('#e8e2d6', leg, s.x + dx, 0.22, s.z + dz);
+      put('#c9973c', leg, s.x + dx, 0.22, s.z + dz);
   }
 
-  // sân khấu: bục trắng + váy hồng + bậc thềm
-  put('#ffffff', new THREE.BoxGeometry(16, STAGE_Y, 7.6), 0, STAGE_Y / 2, -23.4);
-  put('#f7b6c8', new THREE.BoxGeometry(16.1, 0.3, 0.1), 0, STAGE_Y - 0.15, STAGE_FRONT + 0.02);
+  // sân khấu: mặt trắng, thân đỏ vang, viền vàng, bậc thềm
+  put('#ffffff', new THREE.BoxGeometry(16, 0.08, 7.6), 0, STAGE_Y - 0.04, -23.4);
+  put('#6e1838', new THREE.BoxGeometry(16, STAGE_Y - 0.08, 7.6), 0, (STAGE_Y - 0.08) / 2, -23.4);
+  put('#d4a84b', new THREE.BoxGeometry(16.1, 0.07, 0.1), 0, STAGE_Y - 0.04, STAGE_FRONT + 0.02);
+  put('#d4a84b', new THREE.BoxGeometry(16.1, 0.05, 0.1), 0, 0.06, STAGE_FRONT + 0.02);
   put('#ffffff', new THREE.BoxGeometry(3, 0.3, 0.7), 0, 0.15, STAGE_FRONT + 0.35);
+  put('#d4a84b', new THREE.BoxGeometry(3.05, 0.04, 0.05), 0, 0.3, STAGE_FRONT + 0.7);
 
   // cổng hoa trên sân khấu + cổng hoa ở lối vào: vòm + chùm hoa
   const flowers = (cz: number, cy: number, r: number, n: number) => {
     const arch = new THREE.TorusGeometry(r, 0.12, 8, 30, Math.PI);
-    put('#f6efe6', arch, 0, cy, cz);
-    for (const sx of [-1, 1]) put('#f6efe6', new THREE.CylinderGeometry(0.12, 0.14, cy, 8), sx * r, cy / 2, cz);
+    put('#d4a84b', arch, 0, cy, cz);
+    for (const sx of [-1, 1]) put('#d4a84b', new THREE.CylinderGeometry(0.12, 0.14, cy, 8), sx * r, cy / 2, cz);
     const ball = new THREE.SphereGeometry(0.2, 8, 6);
     for (let i = 0; i <= n; i++) {
       const a = (i / n) * Math.PI;
       const c = ['#ffffff', '#ff8fab', '#ffc2d1', '#ff4d6d', '#ffe5ec'][i % 5];
       put(c, ball, Math.cos(a) * r, cy + Math.sin(a) * r, cz + (i % 2 ? 0.08 : -0.08));
-      if (i % 3 === 0) put('#7fb069', new THREE.SphereGeometry(0.13, 6, 5), Math.cos(a) * (r + 0.15), cy + Math.sin(a) * (r + 0.15), cz);
+      if (i % 2 === 0) put('#5f8f4e', new THREE.SphereGeometry(0.13, 6, 5), Math.cos(a) * (r + 0.15), cy + Math.sin(a) * (r + 0.15), cz);
     }
     for (const sx of [-1, 1])
       for (let k = 0; k < 6; k++) put(['#ff8fab', '#ffffff', '#ffc2d1'][k % 3], ball, sx * r + (k % 2 ? 0.12 : -0.12), cy * (k / 6), cz);
@@ -131,6 +151,8 @@ export function buildHall(scene: THREE.Scene) {
     for (const sx of [-1, 1]) {
       put('#e8c26a', stand, sx * (AISLE_HALF + 0.3), 0.45, z);
       put(z % 2 ? '#ffffff' : '#ffc2d1', bunch, sx * (AISLE_HALF + 0.3), 1.02, z);
+      put('#5f8f4e', leaf, sx * (AISLE_HALF + 0.3) + 0.18, 0.95, z + 0.1);
+      put('#5f8f4e', leaf, sx * (AISLE_HALF + 0.3) - 0.18, 0.95, z - 0.1);
     }
 
   // gộp
@@ -139,9 +161,15 @@ export function buildHall(scene: THREE.Scene) {
   // rèm đèn sau sân khấu (đèn nháy li ti)
   const lights = new THREE.BufferGeometry();
   const pts: number[] = [];
-  for (let i = 0; i < 900; i++) pts.push((Math.random() - 0.5) * 20, Math.random() * 8.5, -27.3 + Math.random() * 0.1);
+  for (let i = 0; i < 1400; i++) pts.push((Math.random() - 0.5) * 20, Math.random() * 8.5, -27.3 + Math.random() * 0.1);
+  // dây đèn võng 2 bên tường
+  for (const sx of [-1, 1])
+    for (let i = 0; i < 700; i++) {
+      const z = 10 - Math.random() * 37;
+      pts.push(sx * 13.25, 6.4 - Math.abs(Math.sin(z * 0.8)) * 1.2 + (Math.random() - 0.5) * 0.15, z);
+    }
   lights.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-  const fairy = new THREE.Points(lights, new THREE.PointsMaterial({ color: '#fff3c4', size: 0.09 }));
+  const fairy = new THREE.Points(lights, new THREE.PointsMaterial({ color: '#ffd98a', size: 0.09 }));
   scene.add(fairy);
 
   // phông chữ "Trăm Năm Hạnh Phúc" + tên cô dâu chú rể
@@ -157,16 +185,16 @@ export function buildHall(scene: THREE.Scene) {
     const c = cv.getContext('2d')!;
     c.clearRect(0, 0, 1024, 512);
     c.textAlign = 'center';
-    c.fillStyle = '#c9184a';
+    c.fillStyle = '#f3c969';
     c.font = '800 120px "Be Vietnam Pro", serif';
     c.fillText('囍', 512, 140);
     c.font = '800 92px "Be Vietnam Pro", sans-serif';
-    c.fillStyle = '#b5651d';
+    c.fillStyle = '#f6d58e';
     c.fillText('Trăm Năm Hạnh Phúc', 512, 270);
     if (groom && bride) {
       const cut = (s: string) => (s.length > 14 ? s.slice(0, 13) + '…' : s);
       c.font = '700 66px "Be Vietnam Pro", sans-serif';
-      c.fillStyle = '#c9184a';
+      c.fillStyle = '#ffc2d1';
       c.fillText(`${cut(groom)} ♥ ${cut(bride)}`, 512, 400);
     }
     tex.needsUpdate = true;

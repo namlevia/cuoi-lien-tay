@@ -72,11 +72,14 @@ class World {
   private shadowGeo = new THREE.CircleGeometry(0.32, 16);
   private shadowMat = new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.16, depthWrite: false });
   private glow: THREE.Mesh;
+  private beams: THREE.Mesh[] = [];
+  private glitter = 0;
+  private lastCannon = 0;
 
   constructor() {
     const s = this.scene;
-    s.background = new THREE.Color('#fbe9ee');
-    s.fog = new THREE.Fog('#fbe9ee', 30, 60);
+    s.background = new THREE.Color('#2a0a18');
+    s.fog = new THREE.Fog('#2a0a18', 34, 70);
     s.add(this.hemi);
     const sun = new THREE.DirectionalLight('#ffffff', 1.3);
     sun.position.set(4, 12, 10);
@@ -94,7 +97,7 @@ class World {
     this.mcF.hold('mic');
     s.add(this.mcM.root, this.mcF.root);
 
-    this.fx = new Particles(2600, 0.16, squareTex());
+    this.fx = new Particles(4000, 0.3, squareTex());
     this.hearts = new Particles(500, 0.5, heartTex());
     s.add(this.fx.points, this.hearts.points);
 
@@ -107,6 +110,16 @@ class World {
     this.glow.rotation.x = -Math.PI / 2;
     this.glow.visible = false;
     s.add(this.glow);
+
+    // đèn rọi quét từ trần (cột sáng mờ, cộng sáng)
+    const beamGeo = new THREE.CylinderGeometry(0.12, 2.4, 13, 24, 1, true);
+    beamGeo.translate(0, -6.5, 0); // gốc ở đỉnh để xoay quanh đèn
+    for (const [x, z, c] of [[-10, 4, '#ffe2a8'], [10, 4, '#ffe2a8'], [-10, -8, '#ffd1e6'], [10, -8, '#ffd1e6'], [-6, -18, '#fff4d6'], [6, -18, '#fff4d6']] as const) {
+      const m = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.07, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+      m.position.set(x, 11, z);
+      this.beams.push(m);
+      s.add(m);
+    }
 
     for (let i = 0; i < NPC_COUNT; i++) this.addNpc(i);
   }
@@ -548,6 +561,18 @@ class World {
       this.hearts.add(v((Math.random() - 0.5) * 20, 7 + Math.random() * 3, -20 + Math.random() * 26), v(0, -1, 0), Math.random() < 0.5 ? '#ff4d6d' : '#ff8fab', 7, 0.5);
   }
 
+  /** pháo giấy bắn từ 2 góc sân khấu lên trời rồi rơi xuống */
+  cannons(n = 140) {
+    for (const sx of [-1, 1]) {
+      const at = v(sx * 7, STAGE_Y + 0.3, STAGE_FRONT - 0.6);
+      for (let k = 0; k < n; k++) {
+        const c = ['#ffd166', '#ffffff', '#f3c969', '#ff4d6d', '#ffc2d1', '#e9c46a'][k % 6];
+        this.fx.add(at, v(-sx * (0.5 + Math.random() * 2.5), 7 + Math.random() * 4, 1 + Math.random() * 4), c, 7, 0.9, 3.2);
+      }
+    }
+    this.lastCannon = this.t;
+  }
+
   private poof(at: V3, n: number) {
     this.fx.burst(at.clone().add(v(0, 0.8, 0)), n, ['#ffffff', '#ffe5ec', '#ffd166'], 2.2, 0);
   }
@@ -593,6 +618,24 @@ class World {
         this.ringAnim = null;
       }
     }
+
+    // kim tuyến vàng rơi lấp lánh liên tục
+    this.glitter += dt * 14;
+    while (this.glitter >= 1) {
+      this.glitter--;
+      this.fx.add(v((Math.random() - 0.5) * 24, 9 + Math.random() * 2, -24 + Math.random() * 34), v(0, -0.55, 0), Math.random() < 0.75 ? '#f3c969' : '#fff6d8', 16, 0.35);
+    }
+    // pháo giấy sân khấu mỗi 40 giây cho cảnh luôn có điểm nhấn
+    if (this.t - this.lastCannon > 40) this.cannons(90);
+    // đèn rọi lắc qua lại; quẩy thì đổi màu + sáng hơn
+    this.beams.forEach((b, i) => {
+      b.rotation.z = Math.sin(this.t * 0.5 + i * 1.3) * 0.45;
+      b.rotation.x = Math.cos(this.t * 0.4 + i) * 0.25;
+      const m = b.material as THREE.MeshBasicMaterial;
+      m.opacity = party ? 0.14 : 0.07;
+      if (party) m.color.setHSL((this.t * 0.3 + i * 0.15) % 1, 0.9, 0.7);
+      else m.color.set(i < 2 ? '#ffe2a8' : i < 4 ? '#ffd1e6' : '#fff4d6');
+    });
 
     this.fx.update(dt);
     this.hearts.update(dt);

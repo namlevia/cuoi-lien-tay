@@ -164,6 +164,7 @@ export function useGame() {
     const a = spoken(w.ids[w.stealRole]);
     const b = spoken(w.ids[other(w.stealRole)]);
     voice.say(pick(GAME.accepted)!(a, b), true, undefined, true, () => {
+      world.cannons();
       world.confetti(160);
       world.heartsRain(60);
     });
@@ -205,6 +206,7 @@ export function useGame() {
     voice.say(GAME.hug, false, () => world.hug(6000), keep);
     voice.say(GAME.toast, false, undefined, keep, () => {
       world.partyAll(9000);
+      world.cannons();
       world.confetti(200);
       world.fireworks(4);
     });
@@ -265,6 +267,7 @@ export function useGame() {
     world.setTitle(id, { text: GAME.titles.stealer(w.stealRole), gold: true });
     world.setTitle(oldId, { text: GAME.titles.robbed, gold: false });
     world.fireworks(2);
+    world.cannons(80);
     voice.say(pick(GAME.stolen)!(spoken(id), spoken(oldId), w.stealRole), true, undefined, true);
     // đang chờ trả lời mà người được hỏi đã có mặt: tiền trao cháo múc, lên lễ đường luôn
     if (w.phase === 'proposal' && w.ids[other(w.stealRole)]) {

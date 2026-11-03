@@ -36,3 +36,4 @@ Phần live (TikTok, giọng đọc, đọc tên, cảm ơn quà, gỡ kẹt gi�
 - 2 MC nam nữ đối đáp, giọng hài, nhiều cảm thán, câu ngắn dồn dập. Tốc độ đọc 1.25.
 - Ghế không có nơ hồng (chấm hồng nhấp nháy khi nhìn xa).
 - Camera: toàn cảnh khi rảnh; cầu hôn quay từ phía sân khấu ra cổng hoa (thấy mặt 2 người); đi thảm đỏ quay trước mặt cặp đôi; làm lễ quay sân khấu; MC gọi tên/cảm ơn quà thì lia tới người đó vài giây.
+- Bảng màu "VIP": tường đỏ rượu vang thẫm, ghế/đĩa lót/viền bàn/cổng hoa/viền sân khấu màu vàng gold, lá xanh trong hoa; hồng chỉ còn ở hoa. Tiêu đề chữ vàng. Có đèn rọi quét, kim tuyến vàng rơi liên tục, pháo giấy bắn từ 2 góc sân khấu mỗi 40 giây + lúc đồng ý / cướp / nâng ly.
