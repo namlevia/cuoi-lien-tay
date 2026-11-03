@@ -82,6 +82,7 @@ export function GameControls() {
           <b className="w-9 text-right">{musicVol}%</b>
         </label>
         <B onClick={() => testVoice()}>🔊 Thử 2 giọng MC (trang này)</B>
+        <B onClick={() => void (window as unknown as { cMusicPreview: () => Promise<void> }).cMusicPreview()}>🎵 Nghe thử nhạc nền (trang này)</B>
       </Row>
       <Row label="Thử khách">
         <B onClick={() => setAuto((a) => !a)} on={auto}>

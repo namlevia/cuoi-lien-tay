@@ -24,7 +24,7 @@ Phần live (TikTok, giọng đọc, đọc tên, cảm ơn quà, gỡ kẹt gi�
 - `src/game/rules.ts`: đọc lệnh, khớp tên @. Test: `npx tsx src/game/rules.check.ts`.
 - `src/game/useGame.ts`: trạng thái đám cưới (proposal → walk → vows → after), quà, cướp.
 - `src/game/world/`: `hall.ts` sảnh (đồ tĩnh gộp khối), `chibi3d.ts` nhân vật + 6 bộ đồ cưới, `world.ts` khách đi lại, camera lia, hiệu ứng hạt, bảng tên vẽ ở lớp 2D phủ trên, `tags.ts` vẽ bảng tên/bong bóng.
-- `src/game/music.ts`: nhạc nền tự tạo bằng Web Audio (không có file nhạc).
+- `src/game/music.ts`: nhạc nền tự sáng tác bằng code (giai điệu đám cưới 16 ô nhịp, 72 BPM), dựng sẵn thành WAV bằng OfflineAudioContext rồi phát bằng <audio> như giọng MC. Phát thẳng Web Audio bị LIVE Studio chặn nên chủ kênh không nghe nhạc (2026-11-03).
 - `server.ts`: `/api/tts?v=f` là giọng nữ HoaiMy, mặc định NamMinh.
 - Sửa code trong `src/` lúc trang stage đang mở sẽ làm thế giới 3D tải lại giữa chừng (mất khách). Đừng sửa khi đang live.
 
