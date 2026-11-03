@@ -62,6 +62,10 @@ const emptyStats = (): LiveStats => ({
 
 let liveStats = emptyStats();
 let sseClients: express.Response[] = [];
+// Các trang stage đang mở (theo thứ tự mở). Chỉ trang mở SAU CÙNG được phát tiếng, tránh 2 giọng đọc đè nhau
+// khi lỡ có 2 nguồn Link trong LIVE Studio hoặc mở thêm ?view=stage ở trình duyệt khác.
+let stageIds: string[] = [];
+const announceSpeaker = () => broadcast('speaker', { id: stageIds[stageIds.length - 1] ?? null, count: stageIds.length });
 let activeConn: InstanceType<typeof TikTokLiveConnection> | null = null;
 let lastRateControl: { action: string; text: string } | null = null;
 
@@ -97,6 +101,11 @@ app.get('/api/tiktok/events', (req, res) => {
   if (lastRateControl) res.write(`event: control\ndata: ${JSON.stringify(lastRateControl)}\n\n`);
   if (lastNameControl) res.write(`event: control\ndata: ${JSON.stringify(lastNameControl)}\n\n`);
   sseClients.push(res);
+  const stageId = typeof req.query.stage === 'string' ? req.query.stage.slice(0, 40) : '';
+  if (stageId) {
+    stageIds = [...stageIds.filter((x) => x !== stageId), stageId];
+    announceSpeaker();
+  } else res.write(`event: speaker\ndata: ${JSON.stringify({ id: stageIds[stageIds.length - 1] ?? null, count: stageIds.length })}\n\n`);
 
   const heartbeat = setInterval(() => {
     try {
@@ -109,6 +118,10 @@ app.get('/api/tiktok/events', (req, res) => {
   req.on('close', () => {
     clearInterval(heartbeat);
     sseClients = sseClients.filter((c) => c !== res);
+    if (stageId) {
+      stageIds = stageIds.filter((x) => x !== stageId);
+      announceSpeaker();
+    }
   });
 });
 

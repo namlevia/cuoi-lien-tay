@@ -3,6 +3,8 @@
 //   /             -> trang điều khiển, im lặng, mở bao nhiêu tab cũng được
 const params = new URLSearchParams(window.location.search);
 export const IS_STAGE = params.get('view') === 'stage';
+// mã riêng của trang stage này: server chỉ cho trang stage mở sau cùng phát tiếng
+export const STAGE_ID = IS_STAGE ? Math.random().toString(36).slice(2, 10) : '';
 
 // Kích thước thiết kế của stage. Mọi thứ trên stage vẽ theo khung 1080x1920 rồi tự co giãn.
 export const STAGE_W = 1080;

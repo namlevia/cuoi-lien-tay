@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { LiveHandlers } from './types';
+import { IS_STAGE, STAGE_ID } from './page';
+import { voice } from './voice';
 
 /**
  * Nghe sự kiện live từ server. Handler luôn là bản mới nhất (không lo state cũ),
@@ -24,7 +26,7 @@ export function useLiveEvents(handlers: LiveHandlers) {
       });
 
     const connect = () => {
-      source = new EventSource('/api/tiktok/events');
+      source = new EventSource(IS_STAGE ? `/api/tiktok/events?stage=${STAGE_ID}` : '/api/tiktok/events');
       on('status', (d) => ref.current.onStatus?.(d));
       on('chat', (d) => ref.current.onChat?.(d));
       on('gift', (d) => ref.current.onGift?.(d));
@@ -34,6 +36,15 @@ export function useLiveEvents(handlers: LiveHandlers) {
       on('like', (d) => ref.current.onLike?.(d));
       on('roomUser', (d) => ref.current.onViewers?.(d.viewerCount));
       on('control', (d) => ref.current.onControl?.(d));
+      on('speaker', (d) => {
+        // trang stage bị trang mới hơn thay chỗ: im lặng hẳn (cả giọng lẫn nhạc)
+        if (IS_STAGE) {
+          const mine = d.id === STAGE_ID;
+          if (!mine && voice.enabled) voice.stop();
+          voice.enabled = mine;
+        }
+        ref.current.onSpeaker?.(d);
+      });
       source.onerror = () => {
         source?.close();
         if (!closed) retry = setTimeout(connect, 3000);

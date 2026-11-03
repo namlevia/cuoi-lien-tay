@@ -76,6 +76,7 @@ export function useGame() {
   const [married, setMarried] = useState(0);
   const [duyen, setDuyen] = useState<{ until: number; count: number } | null>(null);
   const [nguyen, setNguyen] = useState<Nguyen | null>(null);
+  const [stageCount, setStageCount] = useState(0);
   const likeBase = useRef<number | null>(null);
   const avatars = useRef(new Map<string, string>());
   const names = useRef(new Map<string, string>()); // id -> tên hiển thị (đã che từ bậy)
@@ -385,6 +386,7 @@ export function useGame() {
 
   useLiveEvents({
     onStatus: setStatus,
+    onSpeaker: (d) => setStageCount(d.count),
 
     onChat: (e) => {
       const id = e.username;
@@ -648,7 +650,7 @@ export function useGame() {
     return () => clearTimeout(t);
   }, [lastGift]);
 
-  return { status, channelName, lastGift, likeProgress, guestCount, view, queueLen, married, duyen, nguyen };
+  return { status, channelName, lastGift, likeProgress, guestCount, view, queueLen, married, duyen, nguyen, stageCount };
 }
 
 export type GameState = ReturnType<typeof useGame>;

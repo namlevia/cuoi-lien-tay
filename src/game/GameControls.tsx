@@ -24,7 +24,7 @@ const two = () => {
   return [a, b] as const;
 };
 
-export function GameControls() {
+export function GameControls({ stageCount = 0 }: { stageCount?: number }) {
   const [auto, setAuto] = useState(false);
   const [musicOn, setMusicOn] = useState(true);
   const [musicVol, setMusicVol] = useState(() => {
@@ -62,6 +62,11 @@ export function GameControls() {
 
   return (
     <section className="space-y-2 rounded-2xl bg-slate-900 p-3 ring-1 ring-slate-800">
+      {stageCount > 1 && (
+        <p className="rounded-lg bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-300">
+          ⚠ Đang có {stageCount} trang stage mở cùng lúc (2 nguồn Link trong LIVE Studio hoặc thêm tab ?view=stage). Chỉ trang mở sau cùng phát tiếng; nên xoá bớt nguồn thừa.
+        </p>
+      )}
       <Row label="Điều khiển">
         <B onClick={() => void sendControl('custom', 'clearStage')}>✖ Dọn sân khấu</B>
         <B onClick={() => void sendControl('custom', 'party')}>🎉 Cả sảnh quẩy</B>

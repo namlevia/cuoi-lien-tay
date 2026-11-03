@@ -29,7 +29,7 @@ export default function App() {
           <GameStage game={game} />
         </StageFrame>
       }
-      extra={<GameControls />}
+      extra={<GameControls stageCount={game.stageCount} />}
     />
   );
 }

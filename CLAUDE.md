@@ -39,3 +39,4 @@ Phần live (TikTok, giọng đọc, đọc tên, cảm ơn quà, gỡ kẹt gi�
 - Bảng màu: tường xanh navy đêm, ghế/đĩa lót/viền bàn/cổng hoa/viền sân khấu màu bạc, lá xanh trong hoa; hồng chỉ ở hoa và chữ tiêu đề (trắng viền hồng). Đã thử vàng gold + đỏ vang: chủ kênh chê ra màu cam, bỏ. Có đèn rọi quét, kim tuyến bạc rơi liên tục, pháo giấy bắn từ 2 góc sân khấu mỗi 40 giây + lúc đồng ý / cướp / nâng ly.
 - Bảng tên luôn có ô avatar (chưa có ảnh thì chữ cái đầu trên nền màu).
 - Mai mối: mỗi ~50-70 giây lúc không có đám, camera zoom vào 1 bàn có 2 khách thật, MC gọi tên 2 bạn ép lên cưới (`GAME.pair`, cổ vũ thật mạnh, hài), 15 giây chưa ai gõ thì ép tiếp (`GAME.pairPush`).
+- Chống 2 giọng: server giữ danh sách trang stage đang mở, chỉ trang mở sau cùng phát tiếng (giọng + nhạc), các trang khác tự im; trang điều khiển báo khi có >1 trang stage. Chủ kênh từng nghe 2 giọng đọc lệch nhau khi live thử (2026-11-03).

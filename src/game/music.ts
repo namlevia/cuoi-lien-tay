@@ -160,7 +160,7 @@ class Music {
     window.addEventListener('pointerdown', tryPlay);
     // âm lượng trượt mượt về mức đích
     setInterval(() => {
-      const target = !this.on ? 0 : Math.min(1, (voice.busy ? DUCK : LOUD) * this.level);
+      const target = !this.on || !voice.enabled ? 0 : Math.min(1, (voice.busy ? DUCK : LOUD) * this.level);
       el.volume = Math.max(0, Math.min(1, el.volume + (target - el.volume) * 0.3));
       if (!this.on && el.volume < 0.01) el.pause();
     }, 100);

@@ -58,4 +58,5 @@ export interface LiveHandlers {
   onLike?: (e: LikeEvent) => void;
   onViewers?: (count: number) => void;
   onControl?: (c: ControlCommand) => void;
+  onSpeaker?: (d: { id: string | null; count: number }) => void; // trang stage nào đang được phát tiếng
 }
