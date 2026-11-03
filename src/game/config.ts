@@ -359,6 +359,20 @@ export const GAME = {
     envelope: `M: ^Sui gia tung phong bì! | F: Mưa phong bì cả sảnh luôn bà con ơi! | M: Nhặt được bao nhiêu thì... nhớ trả lại nha!`,
   },
 
+  // ---------- Tuyển người xem làm nhân viên / vũ công (ngẫu nhiên) ----------
+  hireEveryMs: 100_000,
+  hireMs: 90_000,
+  hireWaiter: [
+    (n: N) => `M: ^Thông báo tuyển dụng khẩn! | F: ${n} được nhận làm nhân viên bưng mâm! | M: Lương trả bằng... đùi gà! ^Vào việc liền!`,
+    (n: N) => `F: Nhà hàng thiếu người! | M: ^${n} ơi, mặc đồng phục vào, bưng mâm giùm cái! | F: Làm tốt cuối buổi được thưởng một ly nước ngọt!`,
+    (n: N) => `M: ${n} ngồi không nãy giờ, MC tuyển luôn làm phục vụ! | F: ^Chạy bàn đi em! | M: Đổ canh là trừ lương nha!`,
+  ],
+  hireDancer: [
+    (n: N) => `F: ^Vũ công mới! | M: ${n} được tuyển lên sân khấu làm vũ công! | F: Nhảy không đẹp là MC cho xuống rửa bát!`,
+    (n: N) => `M: Đội vũ công thiếu một người! | F: ^${n} lên thế chỗ liền! | M: Đồ đã thay, nhạc đã sẵn, nhảy đi chờ chi!`,
+    (n: N) => `F: Bà con nhìn kìa! ${n} mặc đồ vũ công rồi! | M: ^Nhìn chuyên nghiệp ghê! | F: Lát quẩy DJ nhớ nhảy sung vào nha ${n}!`,
+  ],
+
   // ---------- MC rảnh thì nói ----------
   chatter: {
     howTo: [

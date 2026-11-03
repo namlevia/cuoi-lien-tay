@@ -88,8 +88,9 @@ export function useGame() {
     greeter: new NameBatcher(
       GAME.greetEveryMs,
       GAME.namesPerGreeting,
-      (n) => voice.say(pick(GAME.greetings)!(joinNames(n))),
-      () => voice.waiting >= 2,
+      // người lướt vào: chào ưu tiên (chỉ sau câu cảm ơn quà)
+      (n) => voice.say(pick(GAME.greetings)!(joinNames(n)), true),
+      () => voice.waitingPriority >= 2,
     ),
     gifts: new GiftThanker(GAME.giftThanksCooldownMs, GAME.giftBig),
     follows: new OncePerPerson(),
@@ -116,6 +117,7 @@ export function useGame() {
     nextEventAt: Date.now() + GAME.eventEveryMs[0],
     lastDj: Date.now() - GAME.djEveryMs + 3 * 60_000, // lần đầu sau ~3 phút
     danceCalls: [] as number[],
+    lastHire: Date.now() - GAME.hireEveryMs + 45_000, // lần đầu sau ~45 giây
     actLimit: limiter(6_000),
     crewLimit: limiter(45_000),
     lastDuyen: Date.now() - GAME.duyen.everyMs + 90_000, // lần đầu sau ~1,5 phút
@@ -189,8 +191,9 @@ export function useGame() {
     const b = targetId ? spoken(targetId) : speakableName(s.w.targetName);
     if (p.role === 'any') voice.say(GAME.proposal.picked(a, role));
     voice.say(pick(GAME.proposal[role])!(a, b), false, undefined, false, () => world.look('gate', 9000));
-    if (!targetId) voice.say(GAME.targetMissing(b));
-    else if (Math.random() < 0.6) voice.say(GAME.proposal.stealHint(GAME.stealMin, role));
+    const asking = () => s.w?.phase === 'proposal' && s.w.ids[role] === p.id; // vẫn đang chờ trả lời đúng đám này
+    if (!targetId) voice.say(GAME.targetMissing(b), false, undefined, false, undefined, asking);
+    else if (Math.random() < 0.6) voice.say(GAME.proposal.stealHint(GAME.stealMin, role), false, undefined, false, undefined, asking);
     sync();
   };
 
@@ -213,7 +216,7 @@ export function useGame() {
     });
     voice.say(set.rare ? GAME.outfitFunny : GAME.outfit(set.name), false, undefined, true);
     voice.say(pick(GAME.walk)!(spoken(w.ids.groom), spoken(w.ids.bride)), false, undefined, true, () => world.smokeBurst(20, 'aisle'));
-    voice.say(GAME.walkSteal(GAME.stealMin));
+    voice.say(GAME.walkSteal(GAME.stealMin), false, undefined, false, undefined, () => s.w?.phase === 'walk');
     sync();
   };
 
@@ -638,7 +641,7 @@ export function useGame() {
         setTimeout(() => {
           if (!world.has(e.username)) return;
           world.say(e.username, pick(GAME.passerEmoji)!, 3000);
-          if (n !== 'bạn' && s.passerLimit('all') && voice.waiting < 2)
+          if (n !== 'bạn' && s.passerLimit('all') && voice.waiting < 4)
             voice.say(pick(GAME.passer)!(n), false, undefined, false, () => world.look(e.username, 4000));
         }, 7000);
       }
@@ -695,6 +698,7 @@ export function useGame() {
       if (c.action === 'custom' && c.text === 'event') runEvent();
       if (c.action === 'custom' && c.text === 'car') world.weddingCar();
       if (c.action === 'custom' && c.text === 'dj') startDj();
+      if (c.action === 'custom' && c.text === 'hire') s.lastHire = 0;
       if (c.action === 'custom' && c.text === 'roses') world.roseRain(300);
       if (!IS_STAGE) return; // chỉ trang stage làm theo lệnh có tiếng, tránh 2 giọng
       if (c.action === 'speak' && c.text) voice.say(c.text, true);
@@ -756,7 +760,7 @@ export function useGame() {
         const b = w.ids[other(w.stealRole)] ? spoken(w.ids[other(w.stealRole)]) : speakableName(w.targetName);
         if ((left <= 35 && w.nudged === 0) || (left <= 15 && w.nudged === 1)) {
           w.nudged++;
-          if (s.nudgeLimit('all')) voice.say(pick(GAME.nudge)!(b, left), true);
+          if (s.nudgeLimit('all')) voice.say(pick(GAME.nudge)!(b, left), true, undefined, false, undefined, () => s.w === w && w.phase === 'proposal');
         }
       }, 1000),
     );
@@ -782,7 +786,7 @@ export function useGame() {
         const b = cast.slice(1).find((x) => fem(x) !== fem(a)) ?? cast[1];
         world.say(a, '💍 Cưới em nhé!', 4000);
         propose({ id: a, role: fem(a) ? 'bride' : 'groom', target: shown(b) });
-        voice.say(pick(GAME.autoHook)!(spoken(a), spoken(b)));
+        voice.say(pick(GAME.autoHook)!(spoken(a), spoken(b)), false, undefined, false, undefined, () => s.w?.phase === 'proposal' && s.w.ids[other(s.w.stealRole)] === b && Object.values(s.w.ids).includes(a));
         setTimeout(() => {
           const w = s.w;
           if (w?.phase !== 'proposal' || w.ids[other(w.stealRole)] !== b) return;
@@ -795,6 +799,20 @@ export function useGame() {
           }
         }, 10_000 + Math.random() * 12_000);
       }, 4000),
+    );
+    // Tuyển ngẫu nhiên 1 người xem (không phải dàn khách quen) làm nhân viên bưng mâm hoặc vũ công
+    timers.push(
+      setInterval(() => {
+        if (Date.now() - s.lastHire < GAME.hireEveryMs || voice.waiting > 2) return;
+        const busy = new Set([s.w?.ids.groom, s.w?.ids.bride]);
+        const pool = world.ids().filter((id) => !id.startsWith('cast-') && !id.startsWith('ev-') && !busy.has(id));
+        if (!pool.length) return;
+        const id = pool[Math.floor(Math.random() * pool.length)];
+        const kind = Math.random() < 0.5 ? 'waiter' : 'dancer';
+        if (!world.hire(id, kind, GAME.hireMs)) return;
+        s.lastHire = Date.now();
+        voice.say(pick(kind === 'waiter' ? GAME.hireWaiter : GAME.hireDancer)!(spoken(id)), false, undefined, false, () => world.look(id, 5000));
+      }, 5000),
     );
     // Quẩy DJ định kỳ lúc không có đám
     timers.push(

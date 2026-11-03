@@ -11,6 +11,9 @@
 .dc-canvas {
   position: absolute;
   inset: 0;
+  /* luôn phủ kín khung 1080x1920 kể cả khi game tự giảm độ nét (máy chậm) */
+  width: 100%;
+  height: 100%;
 }
 
 .dc-title {

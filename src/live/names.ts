@@ -42,6 +42,7 @@ export function speakableName(nickname: string): string {
     .replace(/\s+/g, ' ')
     .trim();
   if (!clean || containsBanned(clean)) return 'bạn';
+  if (/^user\d{4,}$/i.test(clean)) return 'bạn'; // tên mặc định của TikTok (user5639920112): đọc "user" nghe kỳ
 
   clean = clean
     .replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2') // MinhTuan -> Minh Tuan

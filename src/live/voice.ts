@@ -14,6 +14,7 @@ interface Line {
   at: number;
   done?: () => void;
   start?: () => void; // gọi khi câu bắt đầu đọc (để camera lia tới người được nói tới)
+  valid?: () => boolean; // tới lượt đọc mà trả về false thì bỏ câu (chuyện đã cũ, vd. đã bị cướp mà vẫn "sắp trả lời")
   keep?: boolean; // không bỏ dù chờ lâu (lời dẫn khai mạc dài)
 }
 
@@ -33,14 +34,14 @@ class Voice {
   onSpeaker?: (who: 'M' | 'F' | null) => void;
 
   /** `done`: gọi khi câu đọc xong, bị bỏ, hoặc trang này không phát tiếng */
-  say(text: string, priority = false, done?: () => void, keep = false, start?: () => void) {
+  say(text: string, priority = false, done?: () => void, keep = false, start?: () => void, valid?: () => boolean) {
     if (!this.enabled || !text.trim()) {
       if (start) setTimeout(start, 0);
       if (done) setTimeout(done, 0);
       return;
     }
     const q = priority ? this.priority : this.normal;
-    q.push({ text: text.trim(), at: Date.now(), done, keep, start });
+    q.push({ text: text.trim(), at: Date.now(), done, keep, start, valid });
     if (q.length > MAX_QUEUE) q.shift()?.done?.();
     void this.next();
   }
@@ -78,6 +79,10 @@ class Voice {
     const now = Date.now();
     let line: Line | undefined;
     while ((line = this.priority.shift() ?? this.normal.shift())) {
+      if (line.valid && !line.valid()) {
+        line.done?.();
+        continue;
+      }
       if (line.keep || now - line.at < MAX_WAIT_MS) break;
       line.done?.();
     }

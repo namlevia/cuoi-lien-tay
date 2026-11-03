@@ -98,7 +98,8 @@ class World {
   private djCrew: Guest[] = [];
   private carPath: V3[] = [];
   private stageDanceOn = false;
-  private dj: Chibi;
+  private dj: Guest;
+  private hired: (Guest & { job: 'rest' | 'go' | 'serve' | 'back'; until: number; oldLook: Look; hireKind: 'waiter' | 'dancer' })[] = [];
   private anticAcc = 0;
   /** 1 = đủ hiệu ứng; máy chậm (dưới ~40 khung/giây) thì tự hạ xuống tới 0.4, mượt lại thì tăng dần */
   quality = 1;
@@ -167,15 +168,17 @@ class World {
     this.pets = new Pets(s);
 
     // DJ đeo tai nghe sau bàn DJ
-    this.dj = new Chibi({ ...guestLook('dj'), body: 'shirt', main: '#111111', hair: '#d6332f', longHair: false, hat: 'headphones' });
-    this.dj.root.position.set(6.4, STAGE_Y, -26.1);
-    s.add(this.dj.root);
+    this.dj = this.makeGuest('dj', 'DJ Tèo Teo', false, { ...guestLook('dj', false), body: 'shirt', main: '#111111', hair: '#d6332f', longHair: false, hairStyle: 'short', hat: 'headphones' });
+    this.dj.c.root.position.set(6.4, STAGE_Y, -26.1);
+    this.dj.title = { text: '🎧 DJ', gold: false };
 
     // nhân viên bưng món: vest đen nơ đen, đứng chờ ở cửa bếp 2 bên
     for (let i = 0; i < 5; i++) {
       const g = this.makeGuest(`waiter${i}`, '', false, { ...guestLook(`waiter${i}`), body: 'suit', main: '#1a1a1a', pants: '#1a1a1a', accent: '#111111', hat: 'none', longHair: false });
       const side = i % 2 ? 1 : -1;
       g.c.root.position.set(side * 12.2, 0, -14 + i * 1.2);
+      g.name = ['Anh Tèo Phục Vụ', 'Chị Hoa Bưng Mâm', 'Anh Tũn Chạy Bàn', 'Chị Mơ Phục Vụ', 'Anh Bin Bưng Bê'][i];
+      g.title = { text: '🍽 Phục vụ', gold: false };
       this.waiters.push(Object.assign(g, { job: 'rest' as const, until: Date.now() + i * 1500 }));
     }
 
@@ -184,6 +187,8 @@ class World {
       const g = this.makeGuest(`crew${sx}`, '', false, { ...guestLook(`crew${sx}`), body: 'shirt', main: '#2b2d42', accent: '#ff4d6d', hat: 'cap', longHair: false });
       g.c.root.position.set(sx * 8.3, 0, STAGE_FRONT + 1.2);
       g.face = sx > 0 ? -Math.PI / 2 : Math.PI / 2;
+      g.name = sx < 0 ? 'Anh Hùng Pháo' : 'Anh Dũng Pháo';
+      g.title = { text: '🎆 Đội pháo', gold: false };
       this.crew.push(g);
     }
 
@@ -207,6 +212,8 @@ class World {
       const home = v(Math.sign(x) * (11.6 - (i % 4) * 0.6), 0, -15.4 - (i % 4) * 0.9);
       g.c.root.position.copy(home);
       g.face = 0;
+      g.name = ['Mai', 'Bin', 'Ly', 'Bà Nội Quẩy', 'Trang', 'Tú', 'Anh Dép Lào', 'Ngân', 'Kem', 'Bé Bi', 'Hà', 'Long', 'Chú Váy Cưới', 'Vy'][i] ?? `Vũ công ${i}`;
+      g.title = { text: '💃 Đội nhảy', gold: false };
       this.dancers.push({ g, home, spot: v(x, 0, z) });
     });
 
@@ -218,6 +225,8 @@ class World {
       const home = v(Math.sign(x) * (7.6 + (i % 2) * 0.5), STAGE_Y, -25.2);
       g.c.root.position.copy(home);
       g.face = 0;
+      g.name = ['Vũ công Mai Anh', 'Vũ công Thảo', 'Vũ công Linh', 'Vũ công Yến'][i];
+      g.title = { text: '💃 Vũ công', gold: false };
       this.stageDancers.push({ g, home, spot: v(x, STAGE_Y, STAGE_Z - 1.7) });
     });
 
@@ -928,6 +937,50 @@ class World {
     this.guests.delete(id);
   }
 
+  /** Người xem được "tuyển" làm nhân viên bưng mâm hoặc vũ công trên sân khấu trong `ms`, mặc đồng phục, có danh hiệu */
+  hire(id: string, kind: 'waiter' | 'dancer', ms = 90_000) {
+    const g = this.guests.get(id);
+    if (!g || g.role || g.busy) return false;
+    const fem = !!g.c.look.longHair;
+    const oldLook = g.c.look;
+    g.busy = true;
+    if (kind === 'waiter') {
+      g.c.setLook({ ...oldLook, body: 'suit', main: '#1a1a1a', pants: '#1a1a1a', accent: '#111111', hat: 'none' });
+      g.title = { text: '🍽 Nhân viên bưng mâm', gold: true };
+      // đi ra cửa bếp gần nhất rồi bắt đầu chạy bàn
+      const side = g.c.root.position.x < 0 ? -1 : 1;
+      const lane = TABLES[g.seat?.table ?? 0].z + 2.2;
+      g.path = [v(g.c.root.position.x, 0, lane), v(side * 12, 0, lane)];
+      g.speed = 2.6;
+      this.hired.push(Object.assign(g, { job: 'back' as const, until: Date.now(), oldLook, hireKind: kind }));
+    } else {
+      g.c.setLook(fem ? { ...oldLook, body: 'shortGown', main: '#ff4d9d', accent: '#e6e9ef', shoes: '#e6e9ef', hat: 'tiara' } : { ...oldLook, body: 'suit', main: '#f2f2f2', pants: '#f2f2f2', accent: '#ff4d6d', hat: 'none' });
+      g.title = { text: '💃 Vũ công', gold: true };
+      const spot = v((Math.random() < 0.5 ? -1 : 1) * 3.1, STAGE_Y, STAGE_Z - 1.1); // cạnh hàng vũ công, tránh cột hoa
+      const p = g.c.root.position;
+      const lane = TABLES[g.seat?.table ?? 0].z + 2.2;
+      const ax = (spot.x < 0 ? -1 : 1) * (AISLE_HALF + 0.5);
+      g.path = [v(p.x, 0, lane), v(ax, 0, lane), v(ax, 0, -14.4), v(spot.x, 0, STAGE_FRONT + 0.7), v(spot.x, STAGE_Y, STAGE_FRONT - 0.3), spot];
+      g.speed = 3.2;
+      g.face = 0;
+      this.hired.push(Object.assign(g, { job: 'rest' as const, until: Infinity, oldLook, hireKind: kind }));
+    }
+    g.tag = null;
+    this.poof(g.c.root.position, 30);
+    setTimeout(() => {
+      this.hired = this.hired.filter((h) => h !== g);
+      if (!this.guests.has(id)) return;
+      g.c.hold(null);
+      g.c.setLook(g.wedding ?? oldLook);
+      g.title = null;
+      g.tag = null;
+      g.busy = false;
+      g.action = null;
+      this.goHome(g);
+    }, ms);
+    return true;
+  }
+
   /** đội nhảy chạy ra trước sân khấu nhảy đều trong `ms` rồi về chỗ */
   dance(ms = 8000) {
     const fresh = Date.now() > this.danceUntil;
@@ -1187,8 +1240,8 @@ class World {
         }
       }
     }
-    this.dj.pose = 'dj';
-    this.dj.update(this.t, false);
+    this.dj.action = { pose: 'dj', until: now + 1000 };
+    this.stepGuest(this.dj, dt, now, false);
     this.hall.ledMat.color.setHSL((this.t * 0.15) % 1, 0.9, 0.62);
     this.hall.chand.rotation.y += dt * 0.15;
 
@@ -1277,7 +1330,9 @@ class World {
 
   /** nhân viên bưng món đi tới bàn rồi về bếp; đội nhảy về chỗ khi hết giờ; đội pháo reo khi bắn */
   private stepStaff(now: number) {
-    for (const w of this.waiters) {
+    for (const h of this.hired)
+      if (h.hireKind === 'dancer' && !h.path.length) h.action = { pose: this.stageDanceOn ? 'dance' : 'wave', until: now + 500 };
+    for (const w of [...this.waiters, ...this.hired.filter((h) => h.hireKind === 'waiter')]) {
       if (w.path.length) continue;
       if (w.job === 'rest' && now > w.until) {
         const p = w.c.root.position;
@@ -1356,7 +1411,8 @@ class World {
     const cam = this.camera;
     const list: { g: Guest; x: number; y: number; d: number }[] = [];
     const p = new THREE.Vector3();
-    for (const g of this.guests.values()) {
+    const staff = [...this.waiters, ...this.crew, this.dj, ...this.dancers.map((d) => d.g), ...this.stageDancers.map((d) => d.g)];
+    for (const g of [...this.guests.values(), ...staff]) {
       p.copy(g.c.root.position);
       p.y += 1.85;
       const d = p.distanceTo(cam.position);
