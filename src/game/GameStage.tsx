@@ -122,7 +122,7 @@ export function GameStage({ game }: { game: GameState }) {
       {game.pk ? (
         <div className="dc-pk">
           <div className="dc-pk-head">
-            ⚔️ PK {v?.stealRole === 'groom' ? 'CƯỚP DÂU' : 'CƯỚP RỂ'} · {Math.max(0, Math.ceil((game.pk.until - Date.now()) / 1000))}s
+            ⚔️ PK TRANH DUYÊN · {Math.max(0, Math.ceil((game.pk.until - Date.now()) / 1000))}s
           </div>
           <div className="dc-pk-bar">
             <div className="dc-pk-atk" style={{ width: `${pkPct(game.pk.atk, game.pk.def)}%` }}>
@@ -133,7 +133,7 @@ export function GameStage({ game }: { game: GameState }) {
             </div>
           </div>
           <div className="dc-pk-sub">
-            <span>Gõ <b>CƯỚP</b> · phe {cut(game.pk.atkName, 10)}</span>
+            <span>Gõ <b>TRANH DUYÊN</b> · phe {cut(game.pk.atkName, 10)}</span>
             <span>Gõ <b>KHÔNG</b> · giữ {cut(game.pk.defName, 10)}</span>
           </div>
           <div className="dc-pk-note">1 comment = 1 điểm · 1 xu quà = 10 điểm</div>
@@ -141,7 +141,7 @@ export function GameStage({ game }: { game: GameState }) {
       ) : (
         canSteal && (
           <div className="dc-steal">
-            ⚔️ Không chịu? Gõ <b>CƯỚP</b> để mở PK {v.stealRole === 'groom' ? 'cướp dâu' : 'cướp rể'}
+            ⚔️ Không chịu? Gõ <b>TRANH DUYÊN</b> để mở PK tranh duyên
           </div>
         )
       )}

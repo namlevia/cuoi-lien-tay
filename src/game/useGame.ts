@@ -589,8 +589,8 @@ export function useGame() {
     const until = Date.now() + GAME.pk.ms;
     w.until += GAME.pk.ms; // dừng đồng hồ trả lời trong lúc PK
     s.pk = { w, until, atk: 0, def: 0, atkBy: new Map(), atkIds: new Set(), last: new Map(), challenger, dirty: true, saidMid: false };
-    world.say(challenger, '⚔️ Cướp!', 3000);
-    sync(); // ẩn lời mời "gõ CƯỚP" (mỗi đám PK 1 lần)
+    world.say(challenger, '⚔️ Tranh duyên!', 3000);
+    sync(); // ẩn lời mời "gõ TRANH DUYÊN" (mỗi đám PK 1 lần)
     voice.say(pick(GAME.pk.start)!(spoken(challenger), spoken(w.ids[w.stealRole])), true, undefined, true, () => world.look('gate', GAME.pk.ms));
     pkView();
     return true;
@@ -612,7 +612,7 @@ export function useGame() {
     const p = s.pk;
     if (!p) return false;
     const t = plain(text);
-    const atk = /(^| )cuop( |$)/.test(t);
+    const atk = /(^| )(tranh duyen|cuop)( |$)/.test(t);
     const def = !atk && /(^| )(khong|ko|k|giu|thu)( |$)/.test(t);
     if (!atk && !def) return false;
     const now = Date.now();
@@ -621,7 +621,7 @@ export function useGame() {
     // cô dâu chú rể chỉ được giữ, không tự cướp mình
     const side = atk && !isCouple(p.w, id) ? 'atk' : 'def';
     pkPoint(id, side, 1);
-    if (p.last.size < 60 || Math.random() < 0.2) world.say(id, side === 'atk' ? '⚔️ Cướp!' : '🛡️ Không!', 1500);
+    if (p.last.size < 60 || Math.random() < 0.2) world.say(id, side === 'atk' ? '⚔️ Tranh duyên!' : '🛡️ Không!', 1500);
     return true;
   };
 
@@ -741,9 +741,9 @@ export function useGame() {
           return;
         }
       }
-      // PK cướp dâu: đang PK thì "cướp"/"không" là điểm; đang chờ đồng ý mà có người comment "cướp" thì mở PK
+      // PK tranh duyên: đang PK thì "tranh duyên"/"không" là điểm; đang chờ đồng ý mà có người comment "tranh duyên" thì mở PK
       if (s.pk && pkComment(id, e.comment)) return;
-      if (w?.phase === 'proposal' && !w.pkDone && /(^| )cuop( |$)/.test(plain(e.comment)) && startPk(id)) {
+      if (w?.phase === 'proposal' && !w.pkDone && /(^| )(tranh duyen|cuop)( |$)/.test(plain(e.comment)) && startPk(id)) {
         s.pk!.last.set(id, Date.now());
         return pkPoint(id, 'atk', 1);
       }

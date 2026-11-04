@@ -56,7 +56,7 @@ export const GAME = {
       (a: N, b: N) => `M: Một lời cầu hôn rất can đảm từ ${a}. | ${b} ơi, câu trả lời là gì đây?`,
     ],
     picked: (a: N, role: 'groom' | 'bride') => `M: ${a} gõ cưới mà chưa nói làm cô dâu hay chú rể. | Vậy MC chọn giùm nha: ${a} làm ${roleWord(role)}.`,
-    stealHint: (_price: number, role: 'groom' | 'bride') => `M: À, ai không chịu thì comment cướp để mở PK ${stealWord(role)} nha. | Phe giữ thì comment không.`,
+    stealHint: (_price: number, _role: 'groom' | 'bride') => `M: À, ai không chịu thì comment tranh duyên để mở PK tranh duyên nha. | Phe giữ thì comment không.`,
   },
   self: (a: N) => `M: ${a} ơi, tự cưới mình thì MC chịu thua rồi. | Chọn thêm một người nữa nha.`,
   queued: (a: N, n: number) => `M: ${a} ơi, MC nghe rồi. | Đang có đám trên lễ đường, bạn xếp thứ ${n}, chờ chút nha.`,
@@ -121,17 +121,17 @@ export const GAME = {
   stealLow: (n: N, need: number) => `M: Cảm ơn ${n} nha. | Muốn cướp thì cần ${need} xu, quà này MC xin gửi mừng cô dâu chú rể.`,
   stealAccept: `M: Thắng PK rồi thì khỏi chờ trả lời nữa. | Mời hai bạn lên lễ đường luôn.`,
 
-  // ---------- PK cướp dâu: comment "cướp" = phe cướp, comment "không" = phe giữ; 1 comment 1 điểm, 1 xu = 10 điểm ----------
+  // ---------- PK tranh duyên: comment "tranh duyên" = phe tranh duyên, comment "không" = phe giữ; 1 comment 1 điểm, 1 xu = 10 điểm ----------
   pk: {
     ms: 30_000,
     giftMul: 10,
     start: [
-      (c: N, p: N) => `M: Ơ, ${c} không chịu rồi bà con! | Mở PK ba mươi giây: comment cướp là phe ${c}, comment không là phe giữ ${p}. | Quà một xu bằng mười điểm.`,
-      (c: N, p: N) => `M: Có người muốn giành chỗ của ${p}! | PK bắt đầu: phe cướp comment cướp, phe giữ comment không. | Ba mươi giây thôi nha.`,
-      (c: N, p: N) => `M: ${c} vừa lên tiếng cướp. | Bà con chọn phe đi: comment cướp hay comment không, quà tính gấp mười điểm.`,
+      (c: N, p: N) => `M: Ơ, ${c} không chịu rồi bà con! | Mở PK ba mươi giây: comment tranh duyên là phe ${c}, comment không là phe giữ ${p}. | Quà một xu bằng mười điểm.`,
+      (c: N, p: N) => `M: Có người muốn giành chỗ của ${p}! | PK bắt đầu: phe tranh duyên comment tranh duyên, phe giữ comment không. | Ba mươi giây thôi nha.`,
+      (c: N, p: N) => `M: ${c} vừa lên tiếng tranh duyên. | Bà con chọn phe đi: comment tranh duyên hay comment không, quà tính gấp mười điểm.`,
     ],
-    mid: (a: number, d: number) => `M: Phe cướp ${a} điểm, phe giữ ${d} điểm. | Còn mười lăm giây.`,
-    atkWin: (n: N, o: N, a: number, d: number) => `M: Hết giờ! Phe cướp thắng, ${a} so với ${d}. | ${n} thế chỗ ${o}. | ${o} đừng buồn nha, duyên khác sẽ tới.`,
+    mid: (a: number, d: number) => `M: Phe tranh duyên ${a} điểm, phe giữ ${d} điểm. | Còn mười lăm giây.`,
+    atkWin: (n: N, o: N, a: number, d: number) => `M: Hết giờ! Phe tranh duyên thắng, ${a} so với ${d}. | ${n} thế chỗ ${o}. | ${o} đừng buồn nha, duyên khác sẽ tới.`,
     defWin: (o: N, a: number, d: number) => `M: Hết giờ! Phe giữ thắng, ${d} so với ${a}. | ${o} giữ được người thương rồi. | Một tràng pháo tay nào bà con.`,
   },
   parentsTake: (n: N, label: string) => `M: Cảm ơn ${n} đã tặng quà chúc phúc. | Đám này ${n} được lên làm ${label} nha.`,
